@@ -1,21 +1,19 @@
-// The "Taiyo VERTEX" pipeline: everything that makes a modern browser
-// pretend to be a 1990 3D add-on.
+// The "Taiyo VERTEX" look, done inside each card's shader so it works the
+// same on desktop and in the Quest headset (no offscreen hand-off).
 //
-// - each eye renders into a 256x224 target, shown with nearest-neighbor
-// - card vertices snap to that pixel grid (jitter)
-// - textures are mapped affinely (no perspective correction, so they swim)
+// - 256x224 virtual screen: every card samples its texture once per big
+//   "VERTEX pixel", so the image is chunky at any real resolution
+// - vertices snap to that pixel grid (jitter)
+// - affine texture mapping (no perspective correction, textures swim)
 // - no z-buffer: cards are painter-sorted back to front
-// - final image is quantized to a 512-color (3-3-3 bit) master palette with
-//   4x4 Bayer dithering
-// - head tracking always runs at full headset rate; only animation is stepped
+// - 15-bit color (32,768 colors), like the Super Nintendo
+// - head tracking at full headset rate; only animation is stepped
 
 import * as THREE from 'three';
 
 THREE.ColorManagement.enabled = false; // raw display values end to end
 
 export const RES = { w: 256, h: 224 };
-const HI = { w: 1024, h: 896 };
-
 export const MAX_QUADS = 64;
 
 export const settings = {
@@ -27,22 +25,20 @@ export const settings = {
   scanlines: false,
 };
 
-export const FOG = new THREE.Color(0, 0, 36 / 255);
+export const FOG = new THREE.Color(4 / 255, 6 / 255, 14 / 255);
 
-// Uniforms shared by every card, so a toggle flips the whole scene at once.
+// Shared by every card, so one toggle flips the whole scene.
 const shared = {
   uRes: { value: new THREE.Vector2(RES.w, RES.h) },
+  uCell: { value: new THREE.Vector2(4, 4) },
   uSnap: { value: 1 },
   uAffine: { value: 1 },
-  fogColor: { value: FOG },
-  fogNear: { value: 2.5 },
-  fogFar: { value: 7.5 },
-};
-
-const disp = {
   uPalette: { value: 1 },
   uScan: { value: 0 },
   uFade: { value: 0 },
+  fogColor: { value: FOG },
+  fogNear: { value: 3.0 },
+  fogFar: { value: 9.0 },
 };
 
 const CARD_VERT = /* glsl */ `
@@ -63,7 +59,7 @@ void main() {
   }
   gl_Position = clip;
   // Interpolating uv*w and w, then dividing, cancels the GPU's perspective
-  // correction and gives the old affine (screen-linear) mapping.
+  // correction: the old affine (screen-linear) texture mapping.
   vUvw = vec3(uv * clip.w, clip.w);
   vUvP = uv;
 }`;
@@ -73,48 +69,41 @@ uniform sampler2D map;
 uniform float uAffine;
 uniform float uTint;
 uniform vec2 uUvOffset;
+uniform vec2 uCell;
+uniform float uPalette;
+uniform float uScan;
+uniform float uFade;
 uniform vec3 fogColor;
 uniform float fogNear;
 uniform float fogFar;
 varying vec3 vUvw;
 varying vec2 vUvP;
 varying float vDepth;
-void main() {
-  vec2 uv = (uAffine > 0.5 ? vUvw.xy / vUvw.z : vUvP) + uUvOffset;
-  vec4 c = texture2D(map, uv);
-  if (c.a < 0.5) discard;
-  float f = clamp((vDepth - fogNear) / (fogFar - fogNear), 0.0, 1.0);
-  f = floor(f * 6.0 + 0.5) / 6.0; // banded fog, like a palette ramp
-  gl_FragColor = vec4(mix(c.rgb * uTint, fogColor, f), 1.0);
-}`;
-
-const DISP_VERT = /* glsl */ `
-varying vec2 vUv;
-void main() {
-  vUv = uv;
-  gl_Position = vec4(position.xy, 0.0, 1.0); // fills whatever viewport/eye draws it
-}`;
-
-const DISP_FRAG = /* glsl */ `
-uniform sampler2D tex;
-uniform vec2 uRes;
-uniform float uPalette;
-uniform float uScan;
-uniform float uFade;
-uniform vec3 fadeColor;
-varying vec2 vUv;
 float bayer2(vec2 a) { a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
 float bayer4(vec2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
 void main() {
-  vec2 px = floor(vUv * uRes);
-  vec3 c = texture2D(tex, (px + 0.5) / uRes).rgb;
+  vec2 uv = uAffine > 0.5 ? vUvw.xy / vUvw.z : vUvP;
+  // Snap this fragment to the center of its big VERTEX pixel and sample
+  // there, so the whole block shows one texel.
+  vec2 cell = floor(gl_FragCoord.xy / uCell);
+  vec2 d = (cell + 0.5) * uCell - gl_FragCoord.xy;
+  uv += dFdx(uv) * d.x + dFdy(uv) * d.y;
+  float depth = vDepth + dFdx(vDepth) * d.x + dFdy(vDepth) * d.y;
+
+  vec4 c = texture2D(map, uv + uUvOffset);
+  if (c.a < 0.5) discard;
+
+  float f = clamp((depth - fogNear) / (fogFar - fogNear), 0.0, 1.0);
+  f = floor(f * 8.0 + 0.5) / 8.0; // banded fog, like a palette ramp
+  vec3 col = mix(c.rgb * uTint, fogColor, f);
+
   if (uPalette > 0.5) {
-    float t = bayer4(px) - 0.46875;
-    c = clamp(floor(c * 7.0 + 0.5 + t) / 7.0, 0.0, 1.0); // 8 levels per channel = 512 colors
+    float t = bayer4(cell) - 0.46875;
+    col = clamp(floor(col * 31.0 + 0.5 + t) / 31.0, 0.0, 1.0); // 5 bits per channel
   }
-  if (uScan > 0.5 && fract(vUv.y * uRes.y) > 0.5) c *= 0.8;
-  c = mix(c, fadeColor, uFade);
-  gl_FragColor = vec4(c, 1.0);
+  if (uScan > 0.5 && mod(cell.y, 2.0) > 0.5) col *= 0.82;
+  col = mix(col, fogColor, uFade);
+  gl_FragColor = vec4(col, 1.0);
 }`;
 
 export function cardMaterial(map, { tint = 1 } = {}) {
@@ -137,114 +126,46 @@ export function cardMaterial(map, { tint = 1 } = {}) {
   });
 }
 
-function displayMaterial(rt) {
-  return new THREE.ShaderMaterial({
-    uniforms: {
-      ...disp,
-      tex: { value: rt.texture },
-      uRes: shared.uRes,
-      fadeColor: { value: FOG },
-    },
-    vertexShader: DISP_VERT,
-    fragmentShader: DISP_FRAG,
-    depthTest: false,
-    depthWrite: false,
-  });
-}
-
 export class VertexPipeline {
   constructor(renderer) {
     this.r = renderer;
-    const opts = {
-      minFilter: THREE.NearestFilter,
-      magFilter: THREE.NearestFilter,
-      generateMipmaps: false,
-      depthBuffer: true,
-    };
-    this.rts = [new THREE.WebGLRenderTarget(RES.w, RES.h, opts), new THREE.WebGLRenderTarget(RES.w, RES.h, opts)];
-
-    this.eye = new THREE.PerspectiveCamera();
-    this.eye.matrixAutoUpdate = false;
-    this.eye.matrixWorldAutoUpdate = false;
-    this.screenCam = new THREE.Camera();
-
-    const geo = new THREE.PlaneGeometry(2, 2);
-    const quad = (rt, layer) => {
-      const m = new THREE.Mesh(geo, displayMaterial(rt));
-      m.frustumCulled = false;
-      m.layers.set(layer);
-      return m;
-    };
-    // Flat screen: one quad on layer 0.
-    this.flatScene = new THREE.Scene();
-    this.flatScene.add(quad(this.rts[0], 0));
-    // Headset: three.js gives the left eye layer 1 and the right eye layer 2,
-    // so each eye only sees its own low-res image.
-    this.xrScene = new THREE.Scene();
-    [quad(this.rts[0], 1), quad(this.rts[1], 2)].forEach((q, i) => {
-      // Each eye's low-res pass happens right before that eye draws its quad,
-      // inside the normal XR render (the same trick three.js's Reflector uses
-      // in VR), so the headset's own framebuffer and viewport are restored.
-      q.onBeforeRender = (renderer, _scene, eyeCam) => this.renderEye(i, eyeCam);
-      this.xrScene.add(q);
-    });
-    this.pendingScene = null;
-
+    this.size = new THREE.Vector2();
     this.headPos = new THREE.Vector3();
     this.apply();
   }
 
   apply() {
-    const s = settings.lowres ? RES : HI;
-    this.rts.forEach((rt) => rt.setSize(s.w, s.h));
-    shared.uRes.value.set(s.w, s.h);
     shared.uSnap.value = settings.snap ? 1 : 0;
     shared.uAffine.value = settings.affine ? 1 : 0;
-    disp.uPalette.value = settings.palette ? 1 : 0;
-    disp.uScan.value = settings.scanlines ? 1 : 0;
+    shared.uPalette.value = settings.palette ? 1 : 0;
+    shared.uScan.value = settings.scanlines ? 1 : 0;
+    shared.uRes.value.set(settings.lowres ? RES.w : 4096, settings.lowres ? RES.h : 4096);
+  }
+
+  setCell(width, height) {
+    if (!settings.lowres || !(width > 0) || !(height > 0)) shared.uCell.value.set(1, 1);
+    else shared.uCell.value.set(Math.max(1, width / RES.w), Math.max(1, height / RES.h));
   }
 
   renderFlat(scene, camera) {
-    const r = this.r;
-    disp.uFade.value = 0;
-    r.setRenderTarget(this.rts[0]);
-    r.render(scene, camera);
-    r.setRenderTarget(null);
-    r.render(this.flatScene, this.screenCam);
+    shared.uFade.value = 0;
+    this.r.getDrawingBufferSize(this.size);
+    this.setCell(this.size.x, this.size.y);
+    this.r.render(scene, camera);
   }
 
-  // Fresh head pose every frame (full headset rate), rendered per eye into
-  // the low-res targets, then stretched onto the real eye buffers.
   renderXR(scene, camera, playSpot, leanLimit) {
-    // Fade out if the player leans far enough to see the cards' flat edges
-    // (uses last frame's head pose; one frame of lag is invisible here).
     const xc = this.r.xr.getCamera();
+    // One eye's viewport in real pixels (from last frame; it never changes).
+    const vp = xc.cameras.length ? xc.cameras[0].viewport : null;
+    if (vp && vp.z > 0) this.setCell(vp.z, vp.w);
+    else this.setCell(RES.w * 6, RES.h * 6);
+
+    // Fade out if the player leans far enough to see the cards' flat edges.
     this.headPos.setFromMatrixPosition(xc.matrixWorld);
     const d = Math.hypot(this.headPos.x - playSpot.x, this.headPos.z - playSpot.z);
-    disp.uFade.value = THREE.MathUtils.clamp((d - leanLimit) / 0.15, 0, 1);
+    shared.uFade.value = THREE.MathUtils.clamp((d - leanLimit) / 0.15, 0, 1);
 
-    this.pendingScene = scene;
-    this.r.render(this.xrScene, camera);
-    this.pendingScene = null;
-  }
-
-  renderEye(i, eyeCam) {
-    const r = this.r;
-    const scene = this.pendingScene;
-    if (!scene) return;
-    const e = this.eye;
-    e.matrixWorld.copy(eyeCam.matrixWorld);
-    e.matrixWorldInverse.copy(eyeCam.matrixWorldInverse);
-    e.projectionMatrix.copy(eyeCam.projectionMatrix);
-    e.projectionMatrixInverse.copy(eyeCam.projectionMatrixInverse);
-
-    const current = r.getRenderTarget();
-    const xrOn = r.xr.enabled;
-    r.xr.enabled = false;
-    r.setRenderTarget(this.rts[i]);
-    r.render(scene, e);
-    r.xr.enabled = xrOn;
-    r.setRenderTarget(current);
-    if (eyeCam.viewport) r.state.viewport(eyeCam.viewport);
+    this.r.render(scene, camera);
   }
 }

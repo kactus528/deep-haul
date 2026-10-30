@@ -1,18 +1,43 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { VertexPipeline, settings, RES } from './vertex.js?v=5';
-import { buildCryoBay } from './room-cryo.js?v=5';
+import { VertexPipeline, settings, RES } from './vertex.js?v=6';
+import { buildCryoBay } from './room-cryo.js?v=6';
 
+const BUILD = 6;
 const ANIM_STEP = 1 / 20; // world animation runs at 20 fps
 const PLAY_SPOT = new THREE.Vector2(0, 0); // x, z of the player's fixed spot
 const LEAN_LIMIT = 0.3; // meters before the view fades out
 const EYE_HEIGHT = 1.6;
+
+const help = document.getElementById('help');
+
+// ---------- errors: solid red in the headset, message on desktop ----------
+let lastError = null;
+let broken = false;
+function showError(err) {
+  broken = true;
+  const msg = String((err && (err.stack || err.message)) || err);
+  if (msg === lastError) return;
+  lastError = msg;
+  console.error('[Deep Haul]', err);
+  if (help) {
+    help.style.display = '';
+    help.textContent = `BUILD ${BUILD} ERROR: ${msg}`;
+  }
+}
+addEventListener('error', (e) => showError(e.error || e.message));
+addEventListener('unhandledrejection', (e) => showError(e.reason));
 
 const renderer = new THREE.WebGLRenderer({ antialias: false });
 renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 renderer.setPixelRatio(1);
 renderer.xr.enabled = true;
 renderer.xr.setReferenceSpaceType('local-floor');
+// A shader that fails to compile draws nothing and throws nothing, so catch it.
+renderer.debug.onShaderError = (gl, program, vs, fs) => {
+  const log = [gl.getShaderInfoLog(vs), gl.getShaderInfoLog(fs), gl.getProgramInfoLog(program)].filter(Boolean).join('\n');
+  showError('Shader failed to compile:\n' + log);
+};
 document.body.appendChild(renderer.domElement);
 document.body.appendChild(VRButton.createButton(renderer));
 
@@ -20,9 +45,8 @@ const scene = new THREE.Scene();
 const room = buildCryoBay(scene);
 const camera = new THREE.PerspectiveCamera(60, RES.w / RES.h, 0.05, 50);
 const pipeline = new VertexPipeline(renderer);
-// Test mode: add ?direct to the URL to skip the low-res hand-off in the
-// headset and draw the room straight to the eyes (no palette/dither pass).
-const DIRECT = new URLSearchParams(location.search).has('direct');
+const errScene = new THREE.Scene();
+errScene.background = new THREE.Color(0.6, 0, 0);
 
 // ---------- toggles ----------
 function toggle(...keys) {
@@ -68,8 +92,7 @@ function fit() {
 addEventListener('resize', fit);
 fit();
 
-const help = document.getElementById('help');
-renderer.xr.addEventListener('sessionstart', () => help && (help.style.display = 'none'));
+renderer.xr.addEventListener('sessionstart', () => help && !broken && (help.style.display = 'none'));
 renderer.xr.addEventListener('sessionend', () => {
   if (help) help.style.display = '';
   camera.aspect = RES.w / RES.h;
@@ -97,74 +120,15 @@ function pollXRButtons() {
   }
 }
 
-// ---------- crash indicator: solid red in the headset, message on desktop ----------
-const errScene = new THREE.Scene();
-errScene.background = new THREE.Color(0.6, 0, 0);
-let lastError = null;
-function showError(err) {
-  const msg = String((err && (err.stack || err.message)) || err);
-  if (msg !== lastError) {
-    lastError = msg;
-    console.error('[Deep Haul]', err);
-    if (help) {
-      help.style.display = '';
-      help.textContent = 'ERROR: ' + msg;
-    }
-  }
-}
-addEventListener('error', (e) => showError(e.error || e.message));
-addEventListener('unhandledrejection', (e) => showError(e.reason));
-
-// A shader that fails to compile draws nothing and throws nothing, so catch it.
-let shaderBroken = false;
-renderer.debug.onShaderError = (gl, program, vs, fs) => {
-  shaderBroken = true;
-  const log = [gl.getShaderInfoLog(vs), gl.getShaderInfoLog(fs), gl.getProgramInfoLog(program)].filter(Boolean).join('\n');
-  showError('Shader failed to compile:\n' + log);
-};
-
-// ---------- self-check: did the low-res image actually get drawn? ----------
-// Solid red   = code or shader error (details on the desktop page)
-// Solid pink  = the scene draws nothing into the low-res image
-// Still black = the image is drawn but never reaches the headset
-const statusEl = document.createElement('div');
-statusEl.style.cssText = 'margin-top:6px;color:#fd4';
-statusEl.textContent = 'Self-check: running…';
-if (help) help.appendChild(statusEl);
-const pinkScene = new THREE.Scene();
-pinkScene.background = new THREE.Color(1, 0.2, 0.8);
-let eyeEmpty = false;
-let framesSinceStart = 0;
-function litFraction(rt) {
-  const n = rt.width * rt.height;
-  const px = new Uint8Array(n * 4);
-  renderer.readRenderTargetPixels(rt, 0, 0, rt.width, rt.height, px);
-  let lit = 0;
-  for (let i = 0; i < n * 4; i += 4) if (px[i] + px[i + 1] + px[i + 2] > 60) lit++;
-  return lit / n;
-}
-function selfCheck(where) {
-  const f = litFraction(pipeline.rts[0]);
-  const msg = `Build 5 · Self-check (${where}): ${(f * 100).toFixed(1)}% of the low-res image drawn, ${room.quads} quads, WebGL${renderer.capabilities.isWebGL2 ? '2' : '1'}`;
-  console.info('[Deep Haul]', msg);
-  if (statusEl.isConnected) statusEl.textContent = msg;
-  return f;
-}
-renderer.xr.addEventListener('sessionstart', () => {
-  framesSinceStart = 0;
-  eyeEmpty = false;
-});
-
 // ---------- loop ----------
 let last = performance.now();
 let acc = 0;
 renderer.setAnimationLoop(() => {
   try {
+    if (broken) throw new Error(lastError);
     frame();
   } catch (err) {
-    showError(err);
-    renderer.xr.enabled = true;
-    if (!renderer.xr.isPresenting) renderer.setRenderTarget(null);
+    if (!broken) showError(err);
     renderer.render(errScene, camera);
   }
 });
@@ -184,28 +148,11 @@ function frame() {
     room.update(dt);
   }
 
-  framesSinceStart++;
-  if (shaderBroken) {
-    if (!renderer.xr.isPresenting) renderer.setRenderTarget(null);
-    renderer.render(errScene, camera);
-    return;
-  }
-
   if (renderer.xr.isPresenting) {
     pollXRButtons();
-    if (eyeEmpty) {
-      renderer.render(pinkScene, camera);
-      return;
-    }
-    if (DIRECT) {
-      renderer.render(scene, camera);
-      return;
-    }
     pipeline.renderXR(scene, camera, PLAY_SPOT, LEAN_LIMIT);
-    if (framesSinceStart === 90) eyeEmpty = selfCheck('headset') < 0.01;
   } else {
     updateFlat(dt);
     pipeline.renderFlat(scene, camera);
-    if (framesSinceStart === 30) selfCheck('desktop');
   }
 }
