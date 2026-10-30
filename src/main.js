@@ -94,10 +94,39 @@ function pollXRButtons() {
   }
 }
 
+// ---------- crash indicator: solid red in the headset, message on desktop ----------
+const errScene = new THREE.Scene();
+errScene.background = new THREE.Color(0.6, 0, 0);
+let lastError = null;
+function showError(err) {
+  const msg = String((err && (err.stack || err.message)) || err);
+  if (msg !== lastError) {
+    lastError = msg;
+    console.error('[Deep Haul]', err);
+    if (help) {
+      help.style.display = '';
+      help.textContent = 'ERROR: ' + msg;
+    }
+  }
+}
+addEventListener('error', (e) => showError(e.error || e.message));
+addEventListener('unhandledrejection', (e) => showError(e.reason));
+
 // ---------- loop ----------
 let last = performance.now();
 let acc = 0;
 renderer.setAnimationLoop(() => {
+  try {
+    frame();
+  } catch (err) {
+    showError(err);
+    renderer.xr.enabled = true;
+    if (!renderer.xr.isPresenting) renderer.setRenderTarget(null);
+    renderer.render(errScene, camera);
+  }
+});
+
+function frame() {
   const now = performance.now();
   const dt = Math.min((now - last) / 1000, 0.25);
   last = now;
@@ -119,4 +148,4 @@ renderer.setAnimationLoop(() => {
     updateFlat(dt);
     pipeline.renderFlat(scene, camera);
   }
-});
+}

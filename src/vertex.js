@@ -181,8 +181,14 @@ export class VertexPipeline {
     // Headset: three.js gives the left eye layer 1 and the right eye layer 2,
     // so each eye only sees its own low-res image.
     this.xrScene = new THREE.Scene();
-    this.xrScene.add(quad(this.rts[0], 1));
-    this.xrScene.add(quad(this.rts[1], 2));
+    [quad(this.rts[0], 1), quad(this.rts[1], 2)].forEach((q, i) => {
+      // Each eye's low-res pass happens right before that eye draws its quad,
+      // inside the normal XR render (the same trick three.js's Reflector uses
+      // in VR), so the headset's own framebuffer and viewport are restored.
+      q.onBeforeRender = (renderer, _scene, eyeCam) => this.renderEye(i, eyeCam);
+      this.xrScene.add(q);
+    });
+    this.pendingScene = null;
 
     this.headPos = new THREE.Vector3();
     this.apply();
@@ -210,30 +216,35 @@ export class VertexPipeline {
   // Fresh head pose every frame (full headset rate), rendered per eye into
   // the low-res targets, then stretched onto the real eye buffers.
   renderXR(scene, camera, playSpot, leanLimit) {
-    const r = this.r;
-    const xrTarget = r.getRenderTarget();
-    r.xr.updateCamera(camera);
-    const xc = r.xr.getCamera();
-
-    r.xr.enabled = false;
-    for (let i = 0; i < 2; i++) {
-      const src = xc.cameras[i] || xc.cameras[0];
-      const e = this.eye;
-      e.matrixWorld.copy(src.matrixWorld);
-      e.matrixWorldInverse.copy(src.matrixWorldInverse);
-      e.projectionMatrix.copy(src.projectionMatrix);
-      e.projectionMatrixInverse.copy(src.projectionMatrixInverse);
-      r.setRenderTarget(this.rts[i]);
-      r.render(scene, e);
-    }
-    r.xr.enabled = true;
-
-    // Fade out if the player leans far enough to see the cards' flat edges.
+    // Fade out if the player leans far enough to see the cards' flat edges
+    // (uses last frame's head pose; one frame of lag is invisible here).
+    const xc = this.r.xr.getCamera();
     this.headPos.setFromMatrixPosition(xc.matrixWorld);
     const d = Math.hypot(this.headPos.x - playSpot.x, this.headPos.z - playSpot.z);
     disp.uFade.value = THREE.MathUtils.clamp((d - leanLimit) / 0.15, 0, 1);
 
-    r.setRenderTarget(xrTarget);
-    r.render(this.xrScene, camera);
+    this.pendingScene = scene;
+    this.r.render(this.xrScene, camera);
+    this.pendingScene = null;
+  }
+
+  renderEye(i, eyeCam) {
+    const r = this.r;
+    const scene = this.pendingScene;
+    if (!scene) return;
+    const e = this.eye;
+    e.matrixWorld.copy(eyeCam.matrixWorld);
+    e.matrixWorldInverse.copy(eyeCam.matrixWorldInverse);
+    e.projectionMatrix.copy(eyeCam.projectionMatrix);
+    e.projectionMatrixInverse.copy(eyeCam.projectionMatrixInverse);
+
+    const current = r.getRenderTarget();
+    const xrOn = r.xr.enabled;
+    r.xr.enabled = false;
+    r.setRenderTarget(this.rts[i]);
+    r.render(scene, e);
+    r.xr.enabled = xrOn;
+    r.setRenderTarget(current);
+    if (eyeCam.viewport) r.state.viewport(eyeCam.viewport);
   }
 }
