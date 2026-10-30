@@ -112,6 +112,46 @@ function showError(err) {
 addEventListener('error', (e) => showError(e.error || e.message));
 addEventListener('unhandledrejection', (e) => showError(e.reason));
 
+// A shader that fails to compile draws nothing and throws nothing, so catch it.
+let shaderBroken = false;
+renderer.debug.onShaderError = (gl, program, vs, fs) => {
+  shaderBroken = true;
+  const log = [gl.getShaderInfoLog(vs), gl.getShaderInfoLog(fs), gl.getProgramInfoLog(program)].filter(Boolean).join('\n');
+  showError('Shader failed to compile:\n' + log);
+};
+
+// ---------- self-check: did the low-res image actually get drawn? ----------
+// Solid red   = code or shader error (details on the desktop page)
+// Solid pink  = the scene draws nothing into the low-res image
+// Still black = the image is drawn but never reaches the headset
+const statusEl = document.createElement('div');
+statusEl.style.cssText = 'margin-top:6px;color:#fd4';
+statusEl.textContent = 'Self-check: running…';
+if (help) help.appendChild(statusEl);
+const pinkScene = new THREE.Scene();
+pinkScene.background = new THREE.Color(1, 0.2, 0.8);
+let eyeEmpty = false;
+let framesSinceStart = 0;
+function litFraction(rt) {
+  const n = rt.width * rt.height;
+  const px = new Uint8Array(n * 4);
+  renderer.readRenderTargetPixels(rt, 0, 0, rt.width, rt.height, px);
+  let lit = 0;
+  for (let i = 0; i < n * 4; i += 4) if (px[i] + px[i + 1] + px[i + 2] > 60) lit++;
+  return lit / n;
+}
+function selfCheck(where) {
+  const f = litFraction(pipeline.rts[0]);
+  const msg = `Self-check (${where}): ${(f * 100).toFixed(1)}% of the low-res image drawn, ${room.quads} quads, WebGL${renderer.capabilities.isWebGL2 ? '2' : '1'}`;
+  console.info('[Deep Haul]', msg);
+  if (statusEl.isConnected) statusEl.textContent = msg;
+  return f;
+}
+renderer.xr.addEventListener('sessionstart', () => {
+  framesSinceStart = 0;
+  eyeEmpty = false;
+});
+
 // ---------- loop ----------
 let last = performance.now();
 let acc = 0;
@@ -141,11 +181,24 @@ function frame() {
     room.update(dt);
   }
 
+  framesSinceStart++;
+  if (shaderBroken) {
+    if (!renderer.xr.isPresenting) renderer.setRenderTarget(null);
+    renderer.render(errScene, camera);
+    return;
+  }
+
   if (renderer.xr.isPresenting) {
     pollXRButtons();
+    if (eyeEmpty) {
+      renderer.render(pinkScene, camera);
+      return;
+    }
     pipeline.renderXR(scene, camera, PLAY_SPOT, LEAN_LIMIT);
+    if (framesSinceStart === 90) eyeEmpty = selfCheck('headset') < 0.01;
   } else {
     updateFlat(dt);
     pipeline.renderFlat(scene, camera);
+    if (framesSinceStart === 30) selfCheck('desktop');
   }
 }
