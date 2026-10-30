@@ -17,6 +17,11 @@ export const RES = { w: 256, h: 224 };
 export const MAX_QUADS = 64;
 
 export const settings = {
+  // Comfort mode (headset default): pixels live in the art and the world,
+  // not on your eyes, so nothing crawls or twitches when you move your head.
+  // Authentic mode: the full screen-locked 1992 look, for short bursts.
+  comfort: false,
+  dither: true,
   lowres: true,
   palette: true,
   snap: true,
@@ -31,7 +36,9 @@ export const FOG = new THREE.Color(4 / 255, 6 / 255, 14 / 255);
 const shared = {
   uRes: { value: new THREE.Vector2(RES.w, RES.h) },
   uCell: { value: new THREE.Vector2(4, 4) },
-  uSnap: { value: 1 },
+  uSnap: { value: 1 }, // 0 off, 1 screen grid (authentic), 2 world grid (comfort)
+  uWorldGrid: { value: 0.01 },
+  uDither: { value: 1 },
   uAffine: { value: 1 },
   uPalette: { value: 1 },
   uScan: { value: 0 },
@@ -44,14 +51,19 @@ const shared = {
 const CARD_VERT = /* glsl */ `
 uniform vec2 uRes;
 uniform float uSnap;
+uniform float uWorldGrid;
 varying vec3 vUvw;
 varying vec2 vUvP;
 varying float vDepth;
 void main() {
-  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vec4 wp = modelMatrix * vec4(position, 1.0);
+  // Comfort: corners snap to a coarse grid in the world, so shapes are a bit
+  // imprecise but never twitch as the head moves.
+  if (uSnap > 1.5) wp.xyz = floor(wp.xyz / uWorldGrid + 0.5) * uWorldGrid;
+  vec4 mv = viewMatrix * wp;
   vDepth = -mv.z;
   vec4 clip = projectionMatrix * mv;
-  if (uSnap > 0.5 && clip.w > 0.0) {
+  if (uSnap > 0.5 && uSnap < 1.5 && clip.w > 0.0) {
     vec2 hres = uRes * 0.5;
     vec2 ndc = clip.xy / clip.w;
     ndc = floor(ndc * hres + 0.5) / hres;
@@ -71,6 +83,7 @@ uniform float uTint;
 uniform vec2 uUvOffset;
 uniform vec2 uCell;
 uniform float uPalette;
+uniform float uDither;
 uniform float uScan;
 uniform float uFade;
 uniform vec3 fogColor;
@@ -98,7 +111,7 @@ void main() {
   vec3 col = mix(c.rgb * uTint, fogColor, f);
 
   if (uPalette > 0.5) {
-    float t = bayer4(cell) - 0.46875;
+    float t = uDither > 0.5 ? bayer4(cell) - 0.46875 : 0.0;
     col = clamp(floor(col * 31.0 + 0.5 + t) / 31.0, 0.0, 1.0); // 5 bits per channel
   }
   if (uScan > 0.5 && mod(cell.y, 2.0) > 0.5) col *= 0.82;
@@ -135,15 +148,17 @@ export class VertexPipeline {
   }
 
   apply() {
-    shared.uSnap.value = settings.snap ? 1 : 0;
-    shared.uAffine.value = settings.affine ? 1 : 0;
+    const c = settings.comfort;
+    shared.uSnap.value = !settings.snap ? 0 : c ? 2 : 1;
+    shared.uAffine.value = settings.affine && !c ? 1 : 0;
     shared.uPalette.value = settings.palette ? 1 : 0;
-    shared.uScan.value = settings.scanlines ? 1 : 0;
+    shared.uDither.value = settings.dither && !c ? 1 : 0;
+    shared.uScan.value = settings.scanlines && !c ? 1 : 0;
     shared.uRes.value.set(settings.lowres ? RES.w : 4096, settings.lowres ? RES.h : 4096);
   }
 
   setCell(width, height) {
-    if (!settings.lowres || !(width > 0) || !(height > 0)) shared.uCell.value.set(1, 1);
+    if (!settings.lowres || settings.comfort || !(width > 0) || !(height > 0)) shared.uCell.value.set(1, 1);
     else shared.uCell.value.set(Math.max(1, width / RES.w), Math.max(1, height / RES.h));
   }
 

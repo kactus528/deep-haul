@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { VertexPipeline, settings, RES, FOG } from './vertex.js?v=7';
-import { buildCryoBay } from './room-cryo.js?v=7';
+import { VertexPipeline, settings, RES, FOG } from './vertex.js?v=8';
+import { buildCryoBay } from './room-cryo.js?v=8';
 
-const BUILD = 7;
+const BUILD = 8;
 const ANIM_STEP = 1 / 20; // world animation runs at 20 fps
 const PLAY_SPOT = new THREE.Vector2(0, 0); // x, z of the player's fixed spot
 const LEAN_LIMIT = 0.3; // meters before the view fades out
@@ -59,6 +59,14 @@ function toggle(...keys) {
   pipeline.apply();
   room.refreshHud();
 }
+// Headset remembers your choice for this visit; Comfort until you switch.
+let xrComfort = true;
+function setMode(comfort) {
+  settings.comfort = comfort;
+  if (renderer.xr.isPresenting) xrComfort = comfort;
+  pipeline.apply();
+  room.refreshHud();
+}
 const keyToggles = { 1: 'lowres', 2: 'palette', 3: 'snap', 4: 'affine', 5: 'steppedAnim', 6: 'scanlines' };
 
 // ---------- flat preview controls ----------
@@ -66,6 +74,7 @@ const flat = { yaw: 0, pitch: 0, lean: new THREE.Vector2() };
 const held = new Set();
 addEventListener('keydown', (e) => {
   if (keyToggles[e.key]) toggle(keyToggles[e.key]);
+  if (e.key.toLowerCase() === 'm') setMode(!settings.comfort);
   held.add(e.key.toLowerCase());
 });
 addEventListener('keyup', (e) => held.delete(e.key.toLowerCase()));
@@ -131,12 +140,16 @@ renderer.xr.addEventListener('sessionstart', () => {
   needAnchor = true;
   anchorFrames = 0;
   pipeline.setFade(0);
+  setMode(xrComfort);
 });
 renderer.xr.addEventListener('sessionend', () => {
   world.position.set(0, 0, 0);
   world.rotation.set(0, 0, 0);
   PLAY_SPOT.set(0, 0);
   pipeline.setFade(0);
+  settings.comfort = false; // flat screen stays fully authentic
+  pipeline.apply();
+  room.refreshHud();
   if (help) help.style.display = '';
   camera.aspect = RES.w / RES.h;
   camera.updateProjectionMatrix();
@@ -158,6 +171,10 @@ function pollXRButtons() {
       anchorFrames = 4;
     }
     prevPressed[src.handedness + 'grip'] = grip;
+    // Either thumbstick click: switch Comfort / Authentic.
+    const stick = !!(gp.buttons[3] && gp.buttons[3].pressed);
+    if (stick && !prevPressed[src.handedness + 'stick']) setMode(!settings.comfort);
+    prevPressed[src.handedness + 'stick'] = stick;
     for (const i of [4, 5]) {
       const key = src.handedness + i;
       const pressed = !!(gp.buttons[i] && gp.buttons[i].pressed);
