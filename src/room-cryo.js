@@ -4,8 +4,8 @@
 // positions and sizes can stay.
 
 import * as THREE from 'three';
-import { cardMaterial, settings, FOG, MAX_QUADS } from './vertex.js?v=6';
-import { pixelTexture, RAMPS as R } from './pixelart.js?v=6';
+import { cardMaterial, settings, FOG, MAX_QUADS } from './vertex.js?v=7';
+import { pixelTexture, RAMPS as R } from './pixelart.js?v=7';
 
 export function buildCryoBay(scene) {
   scene.background = FOG;
@@ -302,7 +302,7 @@ export function buildCryoBay(scene) {
   const hud = pixelTexture(128, 48, (p, w, h) => {
     p.rect(0, 0, w, h, R.black[1]);
     p.rect(0, 0, w, 1, R.steel[4]);
-    p.text('VERTEX  BUILD 6', 3, 2, R.phosphor[6], 8);
+    p.text('VERTEX  BUILD 7', 3, 2, R.phosphor[6], 8);
     p.text(`QUADS ${quads}/${MAX_QUADS}`, 3, 13, quads > MAX_QUADS ? R.red[6] : R.phosphor[6], 8);
     const items = [['LO', settings.lowres], ['PAL', settings.palette], ['SNP', settings.snap], ['AFF', settings.affine], ['20F', settings.steppedAnim]];
     let x = 3;
@@ -310,7 +310,7 @@ export function buildCryoBay(scene) {
       p.text(s, x, 24, on ? R.phosphor[6] : R.dark[5], 8);
       x += s.length * 5 + 5;
     }
-    p.text('A B X Y  /  1-6', 3, 35, R.steel[5], 8);
+    p.text('GRIP=RECENTER', 3, 35, R.steel[5], 8);
   });
   card(hud, 0.4, 0.15, [-0.42, 1.05, -0.75], { face: [0, 1.6, 0], counted: false });
 

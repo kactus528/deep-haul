@@ -154,18 +154,17 @@ export class VertexPipeline {
     this.r.render(scene, camera);
   }
 
-  renderXR(scene, camera, playSpot, leanLimit) {
+  renderXR(scene, camera) {
     const xc = this.r.xr.getCamera();
     // One eye's viewport in real pixels (from last frame; it never changes).
     const vp = xc.cameras.length ? xc.cameras[0].viewport : null;
     if (vp && vp.z > 0) this.setCell(vp.z, vp.w);
     else this.setCell(RES.w * 6, RES.h * 6);
-
-    // Fade out if the player leans far enough to see the cards' flat edges.
-    this.headPos.setFromMatrixPosition(xc.matrixWorld);
-    const d = Math.hypot(this.headPos.x - playSpot.x, this.headPos.z - playSpot.z);
-    shared.uFade.value = THREE.MathUtils.clamp((d - leanLimit) / 0.15, 0, 1);
-
     this.r.render(scene, camera);
+  }
+
+  // 0 = clear view, 1 = fully faded to the fog color.
+  setFade(v) {
+    shared.uFade.value = THREE.MathUtils.clamp(v, 0, 1);
   }
 }
