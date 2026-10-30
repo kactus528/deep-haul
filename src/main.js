@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { VertexPipeline, settings, RES } from './vertex.js';
-import { buildCryoBay } from './room-cryo.js';
+import { VertexPipeline, settings, RES } from './vertex.js?v=5';
+import { buildCryoBay } from './room-cryo.js?v=5';
 
 const ANIM_STEP = 1 / 20; // world animation runs at 20 fps
 const PLAY_SPOT = new THREE.Vector2(0, 0); // x, z of the player's fixed spot
@@ -20,6 +20,9 @@ const scene = new THREE.Scene();
 const room = buildCryoBay(scene);
 const camera = new THREE.PerspectiveCamera(60, RES.w / RES.h, 0.05, 50);
 const pipeline = new VertexPipeline(renderer);
+// Test mode: add ?direct to the URL to skip the low-res hand-off in the
+// headset and draw the room straight to the eyes (no palette/dither pass).
+const DIRECT = new URLSearchParams(location.search).has('direct');
 
 // ---------- toggles ----------
 function toggle(...keys) {
@@ -142,7 +145,7 @@ function litFraction(rt) {
 }
 function selfCheck(where) {
   const f = litFraction(pipeline.rts[0]);
-  const msg = `Self-check (${where}): ${(f * 100).toFixed(1)}% of the low-res image drawn, ${room.quads} quads, WebGL${renderer.capabilities.isWebGL2 ? '2' : '1'}`;
+  const msg = `Build 5 · Self-check (${where}): ${(f * 100).toFixed(1)}% of the low-res image drawn, ${room.quads} quads, WebGL${renderer.capabilities.isWebGL2 ? '2' : '1'}`;
   console.info('[Deep Haul]', msg);
   if (statusEl.isConnected) statusEl.textContent = msg;
   return f;
@@ -192,6 +195,10 @@ function frame() {
     pollXRButtons();
     if (eyeEmpty) {
       renderer.render(pinkScene, camera);
+      return;
+    }
+    if (DIRECT) {
+      renderer.render(scene, camera);
       return;
     }
     pipeline.renderXR(scene, camera, PLAY_SPOT, LEAN_LIMIT);

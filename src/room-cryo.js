@@ -4,7 +4,7 @@
 // hand-drawn art later; positions and sizes can stay.
 
 import * as THREE from 'three';
-import { cardMaterial, settings, FOG, MAX_QUADS } from './vertex.js';
+import { cardMaterial, settings, FOG, MAX_QUADS } from './vertex.js?v=5';
 
 // Palette helper: 0-7 per channel, i.e. the VERTEX's 3-3-3 master palette.
 const L = (v) => Math.round((v * 255) / 7);
@@ -232,7 +232,7 @@ export function buildCryoBay(scene) {
   const hud = pixelTexture(96, 40, (R, w, h, text) => {
     R(0, 0, w, h, P(0, 0, 0));
     R(0, 0, w, 1, P(2, 2, 3));
-    text('VERTEX TEST', 3, 2, P(1, 7, 2));
+    text('VERTEX  BUILD 5', 3, 2, P(1, 7, 2));
     text(`QUADS ${quads}/${MAX_QUADS}`, 3, 11, quads > MAX_QUADS ? P(7, 1, 1) : P(1, 7, 2));
     const items = [['LO', settings.lowres], ['PAL', settings.palette], ['SNP', settings.snap], ['AFF', settings.affine], ['20F', settings.steppedAnim]];
     let x = 3;
