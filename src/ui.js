@@ -7,11 +7,11 @@
 // or point + trigger). Desktop: click things; L/T/C/U pick a command; Space advances.
 
 import * as THREE from 'three';
-import { cardMaterial } from './vertex.js?v=14';
-import { pixelTexture, RAMPS as R } from './pixelart.js?v=14';
-import { HOTSPOTS, OPENING, DORIS_TALK, DEFAULTS } from './script.js?v=14';
-import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=14';
-import { createTalkers, mouthFor, TALKER_ASPECT } from './talkers.js?v=14';
+import { cardMaterial } from './vertex.js?v=15';
+import { pixelTexture, RAMPS as R } from './pixelart.js?v=15';
+import { HOTSPOTS, OPENING, DORIS_TALK, DEFAULTS } from './script.js?v=15';
+import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=15';
+import { createTalkers, mouthFor, TALKER_ASPECT } from './talkers.js?v=15';
 
 // The command pad: one command per thumbstick direction.
 // USE also walks through doors (the old MOVE command).
@@ -132,9 +132,15 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
   scene.add(dlgCard);
 
   // The talking portrait, in its own frame beside the text box.
-  const talkers = createTalkers();
+  // If the portraits fail to build for any reason, carry on without them.
+  let talkers = {};
+  try {
+    talkers = createTalkers();
+  } catch (err) {
+    console.error('[Deep Haul] talkers failed, continuing without portraits', err);
+  }
   const PORTRAIT_W = 0.27;
-  const portraitCard = uiCard(talkers.GUS.frames[0][0], PORTRAIT_W, PORTRAIT_W * TALKER_ASPECT, 30);
+  const portraitCard = uiCard(talkers.GUS ? talkers.GUS.frames[0][0] : dlgTex, PORTRAIT_W, PORTRAIT_W * TALKER_ASPECT, 30);
   portraitCard.visible = false;
   scene.add(portraitCard);
   const face = { eye: 0, mouth: 0, mouthT: 0, blinkT: 2.5, blinkStep: -1, shown: null };
@@ -554,7 +560,13 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
         }
       }
       face.eye = face.blinkStep < 0 ? 0 : [1, 2, 2, 1][face.blinkStep];
-      showFace();
+      try {
+        showFace();
+      } catch (err) {
+        console.error('[Deep Haul] talker animation failed', err);
+        talkers = {};
+        portraitCard.visible = false;
+      }
 
       dlg.blinkT += dt;
       if (dlg.blinkT > 0.4) {

@@ -1,8 +1,8 @@
 // Mess hall: tables, VENDO-9, the big announcement screen, the captain's
 // memorial plaque, and a sealed hydroponics door with squeaking behind it.
 
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=14';
-import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex, lampTex } from './roomkit.js?v=14';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=15';
+import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex, lampTex } from './roomkit.js?v=15';
 
 export function buildMess(group) {
   const { card, hitMeshes, quads } = cardMaker(group);

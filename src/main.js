@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=14';
-import { buildCryoBay } from './room-cryo.js?v=14';
-import { buildCorridor } from './room-corridor.js?v=14';
-import { buildMess } from './room-mess.js?v=14';
-import { createHud } from './hud.js?v=14';
-import { createUI } from './ui.js?v=14';
+import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=15';
+import { buildCryoBay } from './room-cryo.js?v=15';
+import { buildCorridor } from './room-corridor.js?v=15';
+import { buildMess } from './room-mess.js?v=15';
+import { createHud } from './hud.js?v=15';
+import { createUI } from './ui.js?v=15';
 
-const BUILD = 14;
+const BUILD = 15;
 const ANIM_STEP = 1 / 20; // world animation runs at 20 fps
 const PLAY_SPOT = new THREE.Vector2(0, 0); // x, z of the player's fixed spot
 const LEAN_LIMIT = 0.3; // meters before the view fades out
@@ -106,6 +106,48 @@ scene.add(camera); // the desktop command menu rides on the camera
 const pipeline = new VertexPipeline(renderer);
 const errScene = new THREE.Scene();
 errScene.background = new THREE.Color(0.6, 0, 0);
+// In the headset you can't see the desktop page, so the error is also
+// written on a panel floating in front of you.
+const errCanvas = document.createElement('canvas');
+errCanvas.width = 1024;
+errCanvas.height = 512;
+const errTex = new THREE.CanvasTexture(errCanvas);
+const errCard = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.6), new THREE.MeshBasicMaterial({ map: errTex, side: THREE.DoubleSide }));
+errScene.add(errCard);
+let errDrawn = null;
+function drawErrorCard() {
+  if (errDrawn === lastError) return;
+  errDrawn = lastError;
+  const g = errCanvas.getContext('2d');
+  g.fillStyle = '#200';
+  g.fillRect(0, 0, 1024, 512);
+  g.fillStyle = '#fff';
+  g.font = 'bold 30px monospace';
+  g.fillText(`BUILD ${BUILD} ERROR - please read this to Claude:`, 24, 50);
+  g.font = '24px monospace';
+  const words = String(lastError || 'unknown').replace(/\s+/g, ' ').split(' ');
+  let line = '', y = 100;
+  for (const w of words) {
+    if ((line + ' ' + w).length > 70) {
+      g.fillText(line, 24, y);
+      y += 32;
+      line = w;
+      if (y > 490) break;
+    } else line = line ? line + ' ' + w : w;
+  }
+  if (y <= 490) g.fillText(line, 24, y);
+  errTex.needsUpdate = true;
+}
+function placeErrorCard() {
+  try {
+    const xc = renderer.xr.isPresenting ? renderer.xr.getCamera() : camera;
+    const pos = new THREE.Vector3(), quat = new THREE.Quaternion();
+    xc.matrixWorld.decompose(pos, quat, new THREE.Vector3());
+    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(quat);
+    errCard.position.copy(pos).addScaledVector(fwd, 1.4);
+    errCard.lookAt(pos);
+  } catch (e) {}
+}
 
 // ---------- toggles ----------
 function toggle(...keys) {
@@ -278,6 +320,8 @@ renderer.setAnimationLoop(() => {
     frame();
   } catch (err) {
     if (!broken) showError(err);
+    drawErrorCard();
+    placeErrorCard();
     renderer.render(errScene, camera);
   }
 });
