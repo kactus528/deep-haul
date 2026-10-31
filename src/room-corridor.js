@@ -1,8 +1,8 @@
 // Deck 2 corridor: between Cryo Bay 3 (behind you) and the mess hall (far
 // end). Crew cabins line the walls: Pike, Shay, the captain, and Q. Leeks.
 
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=16';
-import { cardMaker, H, wallTex, floorTex, ceilingTex, doorTex, endWallTex, lampTex } from './roomkit.js?v=16';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=17';
+import { cardMaker, H, wallTex, floorTex, ceilingTex, doorTex, endWallTex, lampTex } from './roomkit.js?v=17';
 
 export function buildCorridor(group) {
   const { card, hitMeshes, quads } = cardMaker(group);
@@ -106,6 +106,14 @@ export function buildCorridor(group) {
   card(leeksDoor, 1.0, 2.1, [1.28, 1.05, -7.5], { rot: [0, -H, 0], spot: 'door_leeks' });
   card(winTex, 1.4, 0.7, [1.28, 1.6, -5.25], { rot: [0, -H, 0], spot: 'window' });
   card(notice, 0.72, 0.54, [-1.28, 1.5, -4.25], { rot: [0, H, 0], spot: 'notice' });
+  const libDoor = doorTex({
+    name: 'LIBRARY', role: 'READING ROOM', seed: 295, accent: R.hazard,
+    extra: (p) => {
+      p.bevel(16, 44, 32, 22, R.rust, 5);
+      for (let x = 19; x < 45; x += 4) p.rect(x, 48, 3, 14, [R.red[4], R.cryo[4], R.hazard[5], R.phosphor[4]][(x >> 2) % 4]);
+    },
+  });
+  card(libDoor, 1.0, 2.1, [1.28, 1.05, -0.6], { rot: [0, -H, 0], spot: 'librarydoor' });
   for (const z of lampZ) card(lamp, 0.42, 0.32, [0, 2.82, z], { face: [0, 2.82, 0], noHit: true });
 
   return { name: 'CORRIDOR', quads: quads(), hitMeshes, fog: [4, 14], update() {} };

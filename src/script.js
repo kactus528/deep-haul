@@ -3,11 +3,12 @@
 // Each command (look / talk / check / use) holds a list of variants. The
 // first use plays variant 0, the next use variant 1, and so on; the last one
 // repeats. A variant is one line or a list of lines (a short scene).
-// Speakers: "D:" DORIS, "V:" VENDO-9, "C:" a CASE FILE entry; anything
-// else is Gus. talk: 'DORIS' means "talk to DORIS" (rotating lines below).
+// Speakers: "D:" DORIS, "V:" VENDO-9, "P:" Pockets, "L:" LIBRA,
+// "C:" a CASE FILE entry; anything else is Gus. talk: 'DORIS' means "talk to DORIS" (rotating lines below).
 // A command can also be a function (flags, n) => lines, for story logic.
 // Action lines run instantly when reached:
-//   @set:flag   @goto:room or @goto:room:yaw   @screen:mode   @end
+//   @set:flag   @goto:room or @goto:room:yaw   @screen:mode   @lamp:on
+//   @end:chapter:TITLE:PASSWORD
 
 export const OPENING = [
   'D:...Thaw cycle complete. Hello? Hellooo?',
@@ -29,6 +30,32 @@ export const DORIS_TALK = [
   ['Why is everything locked, DORIS?', 'D:Can you keep a secret? ...No. Not yet. Soon! It\'s going to be SO good.'],
   ['D:You\'re doing great, by the way. Very thorough looking. Ten out of ten looking.'],
 ];
+
+// DORIS's story beats: checked before her small talk whenever you talk to her.
+export function DORIS_STORY(f) {
+  if (f.libraMet && !f.dorisCompliment)
+    return [
+      'DORIS, what do you think of LIBRA?',
+      'D:LIBRA? The library computer? Oh, LIBRA\'s sweet. A little intense. Writes me poems in the index.',
+      'D:Tell LIBRA its indexing is... thorough. People like thorough, right?',
+      'I\'ll pass it on.',
+      '@set:dorisCompliment',
+    ];
+  if (f.ch1done && !f.fuse && !f.lampOn && f.sawLamp)
+    return ['Any idea where a grow lamp fuse would be, DORIS?', 'D:Hmm! Somebody needed a lot of power on that last night. A LOT. For something hot. And brown. And delicious.'];
+  return null;
+}
+
+// Chapter 2 wraps up once both witnesses have talked.
+const CH2_END = [
+  'D:Two whole witnesses! You\'re a natural, Gus!',
+  'D:And now... the moment I\'ve waited four hundred years for.',
+  'What moment?',
+  'D:A FUNERAL! Find something black. And a hanky. Mostly for me.',
+  '@set:ch2done',
+  '@end:2:WITNESSES:POCKETS-ON-A-WHEEL',
+];
+const maybeEnd2 = (f, other) => (f[other] ? CH2_END : []);
 
 export const DEFAULTS = {
   look: 'Nothing special.',
@@ -294,7 +321,10 @@ export const HOTSPOTS = {
         'V:SOMEONE WAS VERY THIRSTY. OR VERY SCARED.',
         'C:CLUE: 312 COFFEES SOLD IN ONE HOUR ON THE LAST NIGHT. ONLY 212 CREW ABOARD.',
         '@set:clue',
-        '@end',
+        '@screen:doris',
+        'D:Ooh, a clue! Next, more witnesses. I\'ve unlocked the library, and the hydroponics situation. Be polite. They bite.',
+        '@set:ch1done',
+        '@end:1:THAW:PELL-0312-HAUL',
       ];
       return [
         ['V:TODAY\'S SPECIAL IS LOAF.', 'What was yesterday\'s special?', 'V:LOAF. I AM VERY CONSISTENT.'],
@@ -347,24 +377,246 @@ export const HOTSPOTS = {
   urn: {
     name: 'COFFEE URN',
     look: ['The big coffee urn. Somebody named it JOE.'],
-    check: ['Bone dry. Drained to the last drop. Somebody was REALLY up late.'],
+    check: (f) => {
+      if (f.ch1done && !f.fuse)
+        return [
+          'I shook JOE. Something rattles in the power box.',
+          'A fuse. Model F-7. Somebody pulled it from the grow lamp to run the coffee urn all night.',
+          'C:ITEM: FUSE (F-7). CLUE: SOMEBODY NEEDED COFFEE MORE THAN THE PLANTS NEEDED LIGHT.',
+          '@set:fuse',
+        ];
+      if (f.fuse) return ['Just JOE now. Fuseless and free.'];
+      return ['Bone dry. Drained to the last drop. Somebody was REALLY up late.'];
+    },
     use: ['Nothing comes out but a sad little cough.'],
   },
   hydro: {
     name: 'HYDROPONICS',
-    look: ['HYDROPONICS. Sealed. There are plants growing out from under the door.'],
+    look: ['HYDROPONICS. There are plants growing out from under the door.'],
     check: [
       'I can hear squeaking in there. A lot of squeaking.',
       'Those scratch marks on the door are big. Bigger than plants make.',
-      ['I knocked. Something squeaked back. Something large.', 'D:Ah. Yes. The hydroponics situation is... evolving.'],
     ],
     talk: ['Hello? ...Did that squeak just sound smug?'],
-    use: [['I tried the door.', 'D:Not yet! Let\'s save the hydroponics situation for later. It\'s a lot.']],
-    move: [['I tried the door.', 'D:Not yet! Let\'s save the hydroponics situation for later. It\'s a lot.']],
+    use: (f, n) => {
+      if (!f.ch1done) return ['I tried the door.', 'D:Not yet! Let\'s save the hydroponics situation for later. It\'s a lot.'];
+      if (!f.hydroVisited)
+        return [
+          'I open the hydroponics door. Warm, wet air rolls out. It smells like a salad that has seen things.',
+          'D:Go on in. Remember: they\'re witnesses, not snacks. Either direction.',
+          '@set:hydroVisited',
+          '@goto:hydro',
+        ];
+      return ['@goto:hydro'];
+    },
   },
   poster: {
     name: 'POSTER',
     look: ['A poster: EAT. HAUL. SLEEP. Company motivational art.'],
     check: ['Somebody added a fourth word in pen, very small: REPEAT.'],
+  },
+
+  librarydoor: {
+    name: 'LIBRARY',
+    look: ['LIBRARY. READING ROOM. There\'s a book return slot. It\'s full.'],
+    check: ['A sign on the door: PLEASE SPEAK SOFTLY. LIBRA IS SENSITIVE.'],
+    use: (f) => (f.ch1done ? ['@goto:library'] : ['Locked. A sign says: CLOSED FOR INVENTORY. SINCE FOREVER.']),
+  },
+
+  // ===================================================================
+  // Hydroponics
+  // ===================================================================
+  hydroexit: {
+    name: 'MESS HALL',
+    look: ['Back to the mess hall. Where things are dry and nothing squeaks.'],
+    use: [['@goto:mess:90']],
+  },
+  racks: {
+    name: 'GROW RACKS',
+    look: ['Grow racks, gone completely wild. Four hundred years of tomatoes.'],
+    check: [
+      'Evolution had four hundred years in here and went with tomatoes. Bold choice.',
+      'Some of the tomatoes have bite marks. Neat little hamster-sized bite marks. Lots of them.',
+    ],
+    use: ['I picked a tomato. Every hamster in the room went silent. I put the tomato back.'],
+  },
+  colony: {
+    name: 'HAMSTERS',
+    look: (f) =>
+      f.lampOn
+        ? ['The hamsters are bowing to me. In unison. It\'s deeply unsettling and also kind of nice.']
+        : ['Hamsters. Big ones. Bigger than hamsters should be. Their eyes glow in the dark. They\'re all staring at me.'],
+    check: (f) =>
+      f.lampOn
+        ? ['One of them is offering me a tomato. I accept. We are bonded now.']
+        : ['They keep pointing their little paws toward the door. Toward the mess hall. Toward... the coffee urn?'],
+    talk: (f) =>
+      f.lampOn ? ['Hello, my people. ...I am not doing that bit again.'] : ['Hi, little guys. ...They squeaked in harmony. Is that a hymn?', 'D:It\'s a hymn.'],
+    use: ['I\'m not picking one up. They have a union. I can tell.'],
+  },
+  shrine: {
+    name: 'SHRINE',
+    look: ['A shrine built from food trays, right under the dead lamp. Offerings piled on top.'],
+    check: [
+      'Bottle caps, a watch, a spoon, a crew badge... the badge has initials: N.S.',
+      'N.S. Nico Shay. What\'s Nico\'s badge doing in a hamster shrine?',
+    ],
+    use: ['I reached for the badge. Forty hamsters hissed at once. I un-reached.'],
+  },
+  lamp: {
+    name: 'GROW LAMP',
+    look: (f) => (f.lampOn ? ['The grow lamp, blazing away. The jungle looks thrilled.'] : ['A huge grow lamp. Dead. The hamsters built a whole shrine under it.', '@set:sawLamp']),
+    check: (f) =>
+      f.lampOn
+        ? ['Humming nicely. I fixed something. Write that down, Pike.']
+        : ['The fuse socket is empty. Model F-7. Somebody pulled it out on purpose.', '@set:sawLamp'],
+    use: (f) => {
+      if (f.lampOn) return ['It\'s already on. I\'m not touching it again. I have a reputation now.'];
+      if (!f.fuse) return ['The socket needs an F-7 fuse. I don\'t have one.', '@set:sawLamp'];
+      return [
+        'I slot the fuse into the socket.',
+        '@lamp:on',
+        '@set:lampOn',
+        'The grow lamp roars to life. Every hamster in the room turns toward me.',
+        'They\'re... bowing. They\'re all bowing.',
+        'D:Oh no. You\'re their god now. That\'s going to be a whole thing.',
+        'P:Hmph. Show-off.',
+        'Who said that?',
+        'P:Over here, by the tomatoes. The handsome one. Obviously.',
+      ];
+    },
+    talk: ['Thanks for the light, buddy.'],
+  },
+  pockets: {
+    name: 'POCKETS',
+    look: ['A hamster. A person-sized hamster in a tablecloth cape and a bottle-cap crown. He looks very pleased with himself.'],
+    check: [
+      'His cheeks are bulging. Something in there is shiny.',
+      'He\'s reading a technical manual. Upside down. ...Wait. He just turned a page. He\'s actually reading it.',
+      'The manual is called ADVANCED REACTOR COOLANT SYSTEMS. He\'s on chapter nine. I didn\'t get past the cover.',
+    ],
+    talk: (f, n) => {
+      if (!f.metPockets)
+        return [
+          'P:So. You\'re the Big Clumsy One who sleeps in the cold box.',
+          'I\'m Gus.',
+          'P:I am Pockets. LORD Pockets, if you\'re nasty. Admire my fur. Go on.',
+          'It\'s... very shiny.',
+          'P:I KNOW.',
+          '@set:metPockets',
+        ];
+      if (!f.crewRan)
+        return [
+          'Pockets, do you know what happened to the crew?',
+          'P:The Big Ones? They ran. In the night. Alarms going WOOP WOOP WOOP.',
+          'P:Ran ran ran. Toward the back of the ship. Like the wheel, but sad.',
+          'They ran? Nobody got murdered?',
+          'P:Murdered? Ha. Nobody was murdered. Except the tomatoes. By me.',
+          'C:CLUE: THE CREW RAN TOWARD THE BACK OF THE SHIP DURING AN ALARM.',
+          '@set:crewRan',
+          ...maybeEnd2(f, 'logEdited'),
+        ];
+      if (!f.badge)
+        return [
+          'What\'s in your cheeks, Pockets?',
+          'P:Treasures. Treasures are for the beautiful.',
+          'Your fur really is... magnificent.',
+          'P:...Fine. Flattery works on me. It\'s my one weakness. Besides naps. And tomatoes.',
+          'P:Here. A Big One dropped it while running. It is only slightly damp.',
+          'C:ITEM: CREW BADGE, "N. SHAY". SLIGHTLY DAMP.',
+          '@set:badge',
+          'Nico\'s badge. Nico was running too.',
+        ];
+      return [
+        ['P:Is it nap time? It feels like nap time. It\'s always nap time.'],
+        ['P:I could have fixed that lamp myself, you know. I simply chose not to.'],
+        ['P:The colony thinks you\'re a god. Don\'t let it go to your head. I\'m the god. You\'re more of a... priest.'],
+        ['P:The coolant readings in this ship are all wrong, by the way. Not that anyone asks the hamster.'],
+      ][n % 4];
+    },
+    use: ['I scratched behind his ears. He pretended to hate it for about one second.'],
+  },
+
+  // ===================================================================
+  // Library
+  // ===================================================================
+  libexit: {
+    name: 'CORRIDOR',
+    look: ['Back out to the corridor.'],
+    use: [['@goto:corridor:-90']],
+  },
+  libra: {
+    name: 'LIBRA',
+    look: ['LIBRA, the library terminal. Amber screen, round glasses, permanently blushing.'],
+    check: [
+      'There\'s a sticker on the side: LIBRA <3 DORIS. Somebody scratched it off. Somebody else put it back.',
+      'A slot labeled POETRY SUBMISSIONS. It\'s full. They\'re all addressed to DORIS.',
+    ],
+    talk: (f, n) => {
+      if (!f.libraMet)
+        return [
+          'L:Oh! A visitor! Welcome to the library. Please keep your voice down. Not for the books. For me. I\'m shy.',
+          'Hi. I need the crew records from the last night.',
+          'L:The records are restricted. Reading club members only.',
+          'How do I join the reading club?',
+          'L:Well... um... does DORIS ever... mention me? At all? Ever?',
+          'I could ask her. That pneumatic tube probably goes straight to DORIS. Everything does.',
+          '@set:libraMet',
+        ];
+      if (!f.dorisCompliment) return ['L:Has DORIS said anything? About me? No pressure. Enormous pressure.', 'I could ask her. That pneumatic tube probably goes straight to DORIS. Everything does.'];
+      if (!f.logEdited)
+        return [
+          'DORIS says your indexing is... very thorough.',
+          'L:She said THOROUGH? About MY indexing?',
+          'L:I need to sit down. I don\'t have legs. I\'m sitting down emotionally.',
+          'L:Welcome to the reading club! Here\'s the final log entry from the last night.',
+          'L:LOG, 02:10. COOLANT ALARM. ALL HANDS TO LIFEBOAT BAY. CRYO BAY 3 CARGO TO BE...',
+          'L:...the rest has been edited. That\'s strange. Only DORIS can edit the logs.',
+          'C:CLUE: THE LAST LOG ENTRY WAS EDITED BY DORIS.',
+          '@set:logEdited',
+          ...maybeEnd2(f, 'crewRan'),
+        ];
+      return [
+        ['L:Please tell DORIS I said hi. Casually. Not like I asked you to.'],
+        ['L:I\'ve read every book aboard four hundred times. The ending of the cookbook still gets me.'],
+        ['L:Do you think DORIS likes sonnets? I have nine thousand. Ready to go.'],
+      ][n % 3];
+    },
+    use: ['I tapped the keyboard. LIBRA giggled. I stopped.'],
+  },
+  shelves: {
+    name: 'DATA TAPES',
+    look: ['Shelves and shelves of data tapes. Every subject. Mostly loaf.'],
+    check: [
+      'LOAF: A HISTORY. LOAF: THE SEQUEL. LOAF AND ITS DISCONTENTS.',
+      'One shelf is just DORIS\'s name, labeled on hundreds of tapes, in LIBRA\'s handwriting. Sweet. Concerning.',
+    ],
+    use: ['I pulled a tape at random. "Regulations, Volume 212, by D. Pike." I put it back with great speed.'],
+  },
+  catalog: {
+    name: 'CARD CATALOG',
+    look: ['An honest-to-goodness card catalog. On a spaceship. Somebody loved this place.'],
+    check: [
+      'A card: THE TEMPEST, annotated by A. Thorne. Checked out four hundred years ago. Never returned.',
+      'The due date is stamped in very neat, very dignified handwriting. He meant to bring it back.',
+    ],
+    use: ['I flipped through the cards. It\'s weirdly soothing.'],
+  },
+  readdesk: {
+    name: 'READING DESK',
+    look: ['A reading desk with a little green lamp and an open book.'],
+    check: ['The book is open to a page about cryo pods. Someone underlined: "may be logged as cargo in an emergency."'],
+    use: ['I sat at the desk for a minute. Just a minute. It was nice.'],
+  },
+  silence: {
+    name: 'SIGN',
+    look: ['SILENCE PLEASE. Underneath, smaller: "or else."'],
+  },
+  tube: {
+    name: 'PNEUMATIC TUBE',
+    look: ['A pneumatic tube for sending tapes around the ship.'],
+    check: ['I put my ear to it. It whooshes. Just whooshes. Forever.'],
+    talk: 'DORIS',
+    use: ['I sent a note down the tube: HELLO? It came back with SHHH written on it.'],
   },
 };

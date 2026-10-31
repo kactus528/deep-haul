@@ -7,11 +7,11 @@
 // or point + trigger). Desktop: click things; L/T/C/U pick a command; Space advances.
 
 import * as THREE from 'three';
-import { cardMaterial } from './vertex.js?v=16';
-import { pixelTexture, RAMPS as R } from './pixelart.js?v=16';
-import { HOTSPOTS, OPENING, DORIS_TALK, DEFAULTS } from './script.js?v=16';
-import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=16';
-import { createTalkers, mouthFor, TALKER_ASPECT } from './talkers.js?v=16';
+import { cardMaterial } from './vertex.js?v=17';
+import { pixelTexture, RAMPS as R } from './pixelart.js?v=17';
+import { HOTSPOTS, OPENING, DORIS_TALK, DORIS_STORY, DEFAULTS } from './script.js?v=17';
+import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=17';
+import { createTalkers, mouthFor, TALKER_ASPECT } from './talkers.js?v=17';
 
 // The command pad: one command per thumbstick direction.
 // USE also walks through doors (the old MOVE command).
@@ -103,6 +103,8 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
     VENDO: { tag: 'VENDO-9', ramp: R.suit, ink: R.hazard[7] },
     CASE: { tag: 'CASE FILE', ramp: R.hazard, ink: R.hazard[6] },
     GUS: { tag: 'GUS', ramp: R.cryo, ink: R.cryo[6] },
+    POCKETS: { tag: 'POCKETS', ramp: R.hazard, ink: R.beige[7] },
+    LIBRA: { tag: 'LIBRA', ramp: R.hazard, ink: R.hazard[7] },
   };
 
   // KQ6-style text box: brass frame, dark glass, name tab.
@@ -154,7 +156,7 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
     }
   }
 
-  const PREFIX = { 'D:': 'DORIS', 'V:': 'VENDO', 'C:': 'CASE', 'G:': 'GUS' };
+  const PREFIX = { 'D:': 'DORIS', 'V:': 'VENDO', 'C:': 'CASE', 'G:': 'GUS', 'P:': 'POCKETS', 'L:': 'LIBRA' };
   function pagesFor(rawLines) {
     const pages = [];
     for (const raw of rawLines) {
@@ -173,7 +175,10 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
 
   function runAction({ action, args }) {
     if (action === 'set') state.flags[args[0]] = true;
-    else if (action === 'end') state.pendingEnd = true;
+    else if (action === 'end') {
+      state.pendingEnd = true;
+      state.endInfo = { num: args[0] || '1', title: args[1] || 'THAW', pass: args[2] || 'PELL-0312-HAUL' };
+    }
     else onAction(action, ...args);
   }
 
@@ -253,11 +258,13 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
     p.bevel(0, 0, w, h, R.hazard, 4);
     p.inset(5, 5, w - 10, h - 10, R.black, 1);
     p.vgrad(7, 7, w - 14, h - 14, R.dark, 2.2, 0.3);
-    p.text('END OF CHAPTER 1', 40, 18, R.hazard[6], 14);
-    p.text('T H A W', 92, 42, R.cryo[6], 12);
+    const info = state.endInfo || { num: '1', title: 'THAW', pass: '' };
+    p.text(`END OF CHAPTER ${info.num}`, 40, 18, R.hazard[6], 14);
+    const spaced = info.title.split('').join(' ');
+    p.text(spaced, Math.max(10, 128 - spaced.length * 4), 42, R.cryo[6], 12);
     p.rect(30, 64, w - 60, 1, R.hazard[3]);
     p.text('PASSWORD', 98, 74, R.beige[5], 8);
-    p.text('PELL-0312-HAUL', 66, 86, R.beige[7], 10);
+    p.text(info.pass, Math.max(10, 128 - info.pass.length * 3.2), 86, R.beige[7], 10);
     p.text('THE INVESTIGATION CONTINUES...', 46, 110, R.steel[5], 8);
     p.text('PULL TRIGGER / CLICK', 72, 124, R.dark[6], 7);
     for (let y = 7; y < h - 7; y += 2) p.rect(7, y, w - 14, 1, 'rgba(0,0,0,0.2)');
@@ -270,6 +277,7 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
     endCard.position.set(pos.x + fx * 1.2, pos.y - 0.05, pos.z + fz * 1.2);
     endCard.lookAt(pos.x, pos.y, pos.z);
+    endTex.userData.redraw();
     endCard.visible = true;
     fanfare();
   }
@@ -338,6 +346,7 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
     raycaster.set(origin, dir);
     const targets = menuCard.parent ? [menuCard, ...hitMeshes] : hitMeshes;
     for (const h of raycaster.intersectObjects(targets, false)) {
+      if (!h.object.visible) continue;
       if (h.object === menuCard) {
         const dx = h.uv.x - 0.5, dy = 0.5 - h.uv.y; // +dy = down
         let idx = -1;
@@ -459,8 +468,12 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
     const val = cmd === 'use' && !spot.use ? spot.move : spot[cmd];
     let lines;
     if (cmd === 'talk' && val === 'DORIS') {
-      lines = DORIS_TALK[state.dorisTalk % DORIS_TALK.length];
-      state.dorisTalk++;
+      // Story beats first; otherwise her rotating small talk.
+      lines = DORIS_STORY(state.flags);
+      if (!lines) {
+        lines = DORIS_TALK[state.dorisTalk % DORIS_TALK.length];
+        state.dorisTalk++;
+      }
     } else if (typeof val === 'function') {
       lines = val(state.flags, n);
     } else if (!val || !val.length) {
@@ -508,9 +521,12 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
     // Highlight small props; big walls (region hotspots) and DORIS's
     // animated eye only get the label and the bigger cursor.
     const glows = (m) => m && m.userData.spot !== 'doris' && !m.userData.region;
-    if (hovered && hovered !== mesh && glows(hovered)) hovered.material.uniforms.uTint.value = 1;
+    if (hovered && hovered !== mesh && glows(hovered)) hovered.material.uniforms.uTint.value = hovered.userData.baseTint ?? 1;
+    if (mesh && mesh !== hovered && glows(mesh)) {
+      mesh.userData.baseTint = mesh.material.uniforms.uTint.value;
+      mesh.material.uniforms.uTint.value = mesh.userData.baseTint * 1.3;
+    }
     hovered = mesh;
-    if (glows(mesh)) mesh.material.uniforms.uTint.value = 1.3;
     const text = spot ? HOTSPOTS[spot].name : '';
     if (text !== labelText) {
       labelText = text;

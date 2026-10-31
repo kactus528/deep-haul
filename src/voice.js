@@ -43,6 +43,16 @@ export function blip(speaker) {
     tone('square', f, f, 0.045, 0.03);
     return;
   }
+  if (speaker === 'POCKETS') {
+    const f = 900 + Math.random() * 400;
+    tone('triangle', f, f * 1.3, 0.035, 0.05);
+    return;
+  }
+  if (speaker === 'LIBRA') {
+    const f = 260 + Math.random() * 60;
+    tone('sine', f, f * 1.05, 0.08, 0.08);
+    return;
+  }
   if (speaker === 'DORIS') {
     const f = 560 + Math.random() * 220;
     tone('square', f, f * 0.82, 0.05, 0.035);

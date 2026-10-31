@@ -1,13 +1,15 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=16';
-import { buildCryoBay } from './room-cryo.js?v=16';
-import { buildCorridor } from './room-corridor.js?v=16';
-import { buildMess } from './room-mess.js?v=16';
-import { createHud } from './hud.js?v=16';
-import { createUI } from './ui.js?v=16';
+import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=17';
+import { buildCryoBay } from './room-cryo.js?v=17';
+import { buildCorridor } from './room-corridor.js?v=17';
+import { buildMess } from './room-mess.js?v=17';
+import { buildHydro } from './room-hydro.js?v=17';
+import { buildLibrary } from './room-library.js?v=17';
+import { createHud } from './hud.js?v=17';
+import { createUI } from './ui.js?v=17';
 
-const BUILD = 16;
+const BUILD = 17;
 const ANIM_STEP = 1 / 20; // world animation runs at 20 fps
 const PLAY_SPOT = new THREE.Vector2(0, 0); // x, z of the player's fixed spot
 const LEAN_LIMIT = 0.3; // meters before the view fades out
@@ -76,6 +78,8 @@ function addRoom(id, build) {
 addRoom('cryo', buildCryoBay);
 addRoom('corridor', buildCorridor);
 addRoom('mess', buildMess);
+addRoom('hydro', buildHydro);
+addRoom('library', buildLibrary);
 let room = rooms.cryo;
 room.group.visible = true;
 setFog(...room.fog);
