@@ -1,8 +1,8 @@
 // The ship's library: shelves of data tapes, a card catalog, a reading desk,
 // and LIBRA, the shy terminal who runs the place (and loves DORIS).
 
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=17';
-import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex, lampTex } from './roomkit.js?v=17';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=18';
+import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex, lampTex } from './roomkit.js?v=18';
 
 export function buildLibrary(group) {
   const { card, hitMeshes, quads } = cardMaker(group);

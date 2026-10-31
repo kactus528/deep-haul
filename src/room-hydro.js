@@ -2,8 +2,8 @@
 // dead, the ship's hamsters have evolved a little (with "help"), and they
 // built a shrine under the lamp. Fix the lamp and Pockets shows himself.
 
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=17';
-import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex } from './roomkit.js?v=17';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=18';
+import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex } from './roomkit.js?v=18';
 
 export function buildHydro(group) {
   const { card, hitMeshes, quads } = cardMaker(group);

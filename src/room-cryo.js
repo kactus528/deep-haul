@@ -5,8 +5,8 @@
 // Swap in hand-drawn art later; positions and sizes can stay.
 
 import * as THREE from 'three';
-import { cardMaterial, FOG, MAX_QUADS } from './vertex.js?v=17';
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=17';
+import { cardMaterial, FOG, MAX_QUADS } from './vertex.js?v=18';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=18';
 
 export function buildCryoBay(scene) {
   scene.background = FOG;

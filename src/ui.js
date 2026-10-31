@@ -7,11 +7,11 @@
 // or point + trigger). Desktop: click things; L/T/C/U pick a command; Space advances.
 
 import * as THREE from 'three';
-import { cardMaterial } from './vertex.js?v=17';
-import { pixelTexture, RAMPS as R } from './pixelart.js?v=17';
-import { HOTSPOTS, OPENING, DORIS_TALK, DORIS_STORY, DEFAULTS } from './script.js?v=17';
-import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=17';
-import { createTalkers, mouthFor, TALKER_ASPECT } from './talkers.js?v=17';
+import { cardMaterial } from './vertex.js?v=18';
+import { pixelTexture, RAMPS as R } from './pixelart.js?v=18';
+import { HOTSPOTS, OPENING, DORIS_TALK, DORIS_STORY, DEFAULTS } from './script.js?v=18';
+import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=18';
+import { createTalkers, mouthFor, TALKER_ASPECT } from './talkers.js?v=18';
 
 // The command pad: one command per thumbstick direction.
 // USE also walks through doors (the old MOVE command).
@@ -58,7 +58,29 @@ function opaqueAt(mesh, uv) {
 
 export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getHead, onAction = () => {} }) {
   let hitMeshes = initialHits;
-  const state = { cmd: 0, counts: {}, dorisTalk: 0, openingDone: false, openingTimer: -1, flags: {}, locked: false, pendingEnd: false };
+  const state = { cmd: 0, counts: {}, dorisTalk: 0, openingDone: false, openingTimer: -1, flags: {}, locked: false, pendingEnd: false, room: 'cryo' };
+
+  // ---- saved progress (browser storage; ?new in the address starts over) ----
+  const SAVE_KEY = 'deephaul.save.v1';
+  let saved = null;
+  try {
+    if (new URLSearchParams(location.search).has('new')) localStorage.removeItem(SAVE_KEY);
+    else saved = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+  } catch (e) {
+    saved = null;
+  }
+  if (saved) {
+    Object.assign(state.flags, saved.flags || {});
+    Object.assign(state.counts, saved.counts || {});
+    state.dorisTalk = saved.dorisTalk || 0;
+    state.openingDone = !!saved.openingDone;
+    state.room = saved.room || 'cryo';
+  }
+  function save() {
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ flags: state.flags, counts: state.counts, dorisTalk: state.dorisTalk, openingDone: state.openingDone, room: state.room }));
+    } catch (e) {}
+  }
 
   // =====================================================================
   // Dialogue window
@@ -174,7 +196,10 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
   }
 
   function runAction({ action, args }) {
-    if (action === 'set') state.flags[args[0]] = true;
+    if (action === 'set') {
+      state.flags[args[0]] = true;
+      save();
+    }
     else if (action === 'end') {
       state.pendingEnd = true;
       state.endInfo = { num: args[0] || '1', title: args[1] || 'THAW', pass: args[2] || 'PELL-0312-HAUL' };
@@ -193,6 +218,7 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
   }
 
   function closeDialogue() {
+    save();
     dlg.open = false;
     dlgCard.visible = false;
     portraitCard.visible = false;
@@ -510,6 +536,7 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
   function startOpening() {
     if (state.openingDone) return;
     state.openingDone = true;
+    save();
     say(OPENING);
   }
 
@@ -650,6 +677,11 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
     update,
     say,
     flags: state.flags,
+    savedRoom: saved ? saved.room : null,
+    saveRoom(id) {
+      state.room = id;
+      save();
+    },
     setHitMeshes(list) {
       hitMeshes = list;
       setHover(null, null);

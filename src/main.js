@@ -1,15 +1,15 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=17';
-import { buildCryoBay } from './room-cryo.js?v=17';
-import { buildCorridor } from './room-corridor.js?v=17';
-import { buildMess } from './room-mess.js?v=17';
-import { buildHydro } from './room-hydro.js?v=17';
-import { buildLibrary } from './room-library.js?v=17';
-import { createHud } from './hud.js?v=17';
-import { createUI } from './ui.js?v=17';
+import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=18';
+import { buildCryoBay } from './room-cryo.js?v=18';
+import { buildCorridor } from './room-corridor.js?v=18';
+import { buildMess } from './room-mess.js?v=18';
+import { buildHydro } from './room-hydro.js?v=18';
+import { buildLibrary } from './room-library.js?v=18';
+import { createHud } from './hud.js?v=18';
+import { createUI } from './ui.js?v=18';
 
-const BUILD = 17;
+const BUILD = 18;
 const ANIM_STEP = 1 / 20; // world animation runs at 20 fps
 const PLAY_SPOT = new THREE.Vector2(0, 0); // x, z of the player's fixed spot
 const LEAN_LIMIT = 0.3; // meters before the view fades out
@@ -97,13 +97,8 @@ function updateTransition(dt) {
   if (trans.state === 'idle') return 0;
   trans.t += dt / 0.35;
   if (trans.state === 'out' && trans.t >= 1) {
-    room.group.visible = false;
-    room = rooms[trans.target];
-    room.group.visible = true;
-    room.group.rotation.y = THREE.MathUtils.degToRad(trans.yaw);
-    setFog(...room.fog);
-    ui.setHitMeshes(room.hitMeshes);
-    hud.setRoom(room.name, room.quads);
+    switchRoomNow(trans.target, trans.yaw);
+    ui.saveRoom(trans.target);
     trans.state = 'in';
     trans.t = 0;
     return 1;
@@ -116,6 +111,16 @@ function updateTransition(dt) {
   return trans.state === 'out' ? trans.t : 1 - trans.t;
 }
 let transFade = 0;
+
+function switchRoomNow(id, yawDeg = 0) {
+  room.group.visible = false;
+  room = rooms[id];
+  room.group.visible = true;
+  room.group.rotation.y = THREE.MathUtils.degToRad(Number(yawDeg) || 0);
+  setFog(...room.fog);
+  if (typeof ui !== 'undefined') ui.setHitMeshes(room.hitMeshes);
+  hud.setRoom(room.name, room.quads);
+}
 const camera = new THREE.PerspectiveCamera(60, RES.w / RES.h, 0.05, 50);
 scene.add(camera); // the desktop command menu rides on the camera
 const pipeline = new VertexPipeline(renderer);
@@ -186,6 +191,8 @@ const held = new Set();
 addEventListener('keydown', (e) => {
   if (keyToggles[e.key]) toggle(keyToggles[e.key]);
   if (e.key.toLowerCase() === 'm') setMode(!settings.comfort);
+  if (e.key.toLowerCase() === 'q') flat.yaw += Math.PI / 4;
+  if (e.key.toLowerCase() === 'e') flat.yaw -= Math.PI / 4;
   held.add(e.key.toLowerCase());
 });
 addEventListener('keyup', (e) => held.delete(e.key.toLowerCase()));
@@ -272,6 +279,13 @@ const ui = createUI({
   },
 });
 
+// ---------- saved progress ----------
+// The story flags save automatically (add ?new to the address to start over).
+// Put each room back the way the story left it, then return to the last room.
+if (ui.flags.announced) rooms.mess.onAction('screen', 'doris');
+if (ui.flags.lampOn) rooms.hydro.onAction('lamp', 'on');
+if (ui.savedRoom && rooms[ui.savedRoom] && ui.savedRoom !== 'cryo') switchRoomNow(ui.savedRoom);
+
 renderer.xr.addEventListener('sessionstart', () => {
   ui.onSessionStart();
   if (help && !broken) help.style.display = 'none';
@@ -297,12 +311,22 @@ renderer.xr.addEventListener('sessionend', () => {
 
 // ---------- headset buttons: A palette, B snap+affine, X low-res, Y 20fps ----------
 const prevPressed = {};
+let snapLatch = false;
 function pollXRButtons() {
   const session = renderer.xr.getSession();
   if (!session) return;
   for (const src of session.inputSources) {
     const gp = src.gamepad;
     if (!gp) continue;
+    // Right thumbstick left/right: snap-turn 45 degrees (the room turns
+    // around you; your spot stays put).
+    if (src.handedness === 'right') {
+      const x = gp.axes[2] || 0;
+      if (!snapLatch && Math.abs(x) > 0.7) {
+        snapLatch = true;
+        world.rotation.y += Math.sign(x) * (Math.PI / 4);
+      } else if (Math.abs(x) < 0.3) snapLatch = false;
+    }
     // Either grip button: rebuild the room around where you stand now.
     const grip = !!(gp.buttons[1] && gp.buttons[1].pressed);
     if (grip && !prevPressed[src.handedness + 'grip']) {
