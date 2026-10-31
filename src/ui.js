@@ -7,10 +7,10 @@
 // pick). Desktop: click things; L/T/C/U pick a command; Space advances.
 
 import * as THREE from 'three';
-import { cardMaterial } from './vertex.js?v=11';
-import { pixelTexture, RAMPS as R } from './pixelart.js?v=11';
-import { HOTSPOTS, OPENING, DORIS_TALK, DEFAULTS } from './script.js?v=11';
-import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=11';
+import { cardMaterial } from './vertex.js?v=12';
+import { pixelTexture, RAMPS as R } from './pixelart.js?v=12';
+import { HOTSPOTS, OPENING, DORIS_TALK, DEFAULTS } from './script.js?v=12';
+import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=12';
 
 const COMMANDS = ['LOOK', 'TALK', 'CHECK', 'USE', 'MOVE'];
 const MENU_H = 92;
