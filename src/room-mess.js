@@ -1,9 +1,9 @@
 // Mess hall: tables, VENDO-9, the big announcement screen, the captain's
 // memorial plaque, and a sealed hydroponics door with squeaking behind it.
 
-import { makeView, painting, hangPainting, layer, onBackWall, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=32';
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=32';
-import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex, lampTex } from './roomkit.js?v=32';
+import { makeView, painting, hangPainting, layer, onBackWall, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=33';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=33';
+import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex, lampTex } from './roomkit.js?v=33';
 
 export function buildMess(world) {
   const Z = -2.5; // room runs from z +1 (corridor door) to z -6
@@ -64,7 +64,7 @@ export function buildMess(world) {
     p.light(32, 35, 30, LIGHT.cyan, 0.3);
     p.outline('#200a14');
     p.quantize();
-  }, { seed: 433 });
+  }, { seed: 433, key: 'vendo' });
 
   // The big screen: today's menu, or DORIS mid-announcement.
   const screen = { mode: 'menu', blink: true, scroll: 0 };
@@ -228,7 +228,7 @@ export function buildMess(world) {
     screenCard = layer(front, screenTex, sc.w, sc.h, sc.x, sc.y0, sc.z, { spot: 'screen', flat: true });
     const pl = onBackWall(frontP, [0.2, 0.46, 0.28, 0.53]);
     layer(front, plaque, pl.w, pl.h, pl.x, pl.y0, pl.z, { spot: 'plaque', flat: true });
-    layer(front, vendo, 0.95, 1.9, -1.55, 0, 4.3, { spot: 'vendo' });
+    layer(front, vendo, 1.15, 2.3, -1.55, 0, 4.3, { spot: 'vendo' });
     layer(front, tableL, 2.2, 1.1, 1.5, 0, 3.3, { spot: 'tables' });
     layer(front, tableM, 1.65, 1.1, -1.9, 0, 3.0, { spot: 'tables' });
     layer(front, tableS, 1.1, 1.1, 2.7, 0, 2.0, { spot: 'tables' });

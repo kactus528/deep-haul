@@ -68,5 +68,8 @@
   },
   "suit": {
     "file": "suit.png"
+  },
+  "vendo": {
+    "file": "vendo.png"
   }
 }
