@@ -3,7 +3,7 @@
 // "light" (top bright, bottom dark), like a chunky early-90s 3D panel.
 
 import * as THREE from 'three';
-import { FOG, fade } from './vertex.js?v=24';
+import { FOG, fade } from './vertex.js?v=25';
 
 export function slab(card, w, h, depth, edge, { round = false } = {}) {
   const geo = round ? new THREE.CylinderGeometry(w / 2, w / 2, depth, 20, 1).rotateX(Math.PI / 2) : new THREE.BoxGeometry(w, h, depth);

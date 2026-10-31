@@ -5,9 +5,9 @@
 // Swap in hand-drawn art later; positions and sizes can stay.
 
 import * as THREE from 'three';
-import { cardMaterial, FOG, MAX_QUADS } from './vertex.js?v=24';
-import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling, DP } from './stagekit.js?v=24';
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=24';
+import { cardMaterial, FOG, MAX_QUADS } from './vertex.js?v=25';
+import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling, DP } from './stagekit.js?v=25';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=25';
 
 export function buildCryoBay(world) {
   // =====================================================================
@@ -569,11 +569,13 @@ export function buildCryoBay(world) {
       p.light(cx, cy, 70, LIGHT.red, 0.25, 1.2);
     },
   });
-  hangPainting(back, backP, [
-    ['reardoor', backP.backRegion(0.28, 0.21, 0.72, 1)],
-    ['alcoves', backP.region(-3, -3, 0.45, 2.35, 0.9, 3.0)],
-    ['alcoves', backP.region(3, 3, 0.45, 2.35, 0.9, 3.0)],
-  ]);
+  hangPainting(back, backP, backP.isArt
+    ? [['reardoor', [0.41, 0.38, 0.59, 0.67]], ['alcoves', [0, 0.25, 0.29, 0.72]], ['alcoves', [0.71, 0.25, 1, 0.72]]]
+    : [
+        ['reardoor', backP.backRegion(0.28, 0.21, 0.72, 1)],
+        ['alcoves', backP.region(-3, -3, 0.45, 2.35, 0.9, 3.0)],
+        ['alcoves', backP.region(3, 3, 0.45, 2.35, 0.9, 3.0)],
+      ]);
   layer(back, podOpen, 0.9, 1.8, 0, 0, 2.2, { spot: 'mypod' });
   layer(back, mop, 0.5, 1.0, 0.75, 0, 2.0, { spot: 'mop' });
   front.card(papers, 0.6, 0.6, [-0.55, 0.02, -1.9], { rot: [-Math.PI / 2, 0, 0.3], spot: 'papers' });

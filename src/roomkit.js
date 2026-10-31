@@ -3,8 +3,8 @@
 // builders for walls, floors, ceilings and doors.
 
 import * as THREE from 'three';
-import { cardMaterial } from './vertex.js?v=24';
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=24';
+import { cardMaterial } from './vertex.js?v=25';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=25';
 
 export function cardMaker(group) {
   let quads = 0;

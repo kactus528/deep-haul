@@ -8,9 +8,9 @@
 // No surrounding geometry. Each room has a front view and a back view.
 
 import * as THREE from 'three';
-import { pixelTexture, RAMPS as R, LIGHT, fbm, ART, ART_META } from './pixelart.js?v=24';
-import { cardMaker } from './roomkit.js?v=24';
-import { cardMaterial } from './vertex.js?v=24';
+import { pixelTexture, RAMPS as R, LIGHT, fbm, ART, ART_META } from './pixelart.js?v=25';
+import { cardMaker } from './roomkit.js?v=25';
+import { cardMaterial } from './vertex.js?v=25';
 
 export const EYE = 1.6; // eye height the paintings are drawn for (m)
 export const DP = 6; // painting distance (m)

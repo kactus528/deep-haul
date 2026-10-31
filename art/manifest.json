@@ -1,13 +1,23 @@
 {
+  "cryo-back": {
+    "box": [
+      0.32,
+      0.17,
+      0.69,
+      0.63
+    ],
+    "file": "cryo-back.png",
+    "horizon": 0.508
+  },
   "cryo-front": {
-    "file": "cryo-front.png",
-    "horizon": 0.46,
     "box": [
       0.3,
       0.1,
       0.7,
       0.6
-    ]
+    ],
+    "file": "cryo-front.png",
+    "horizon": 0.46
   },
   "pod-closed": {
     "file": "pod-closed.png"
