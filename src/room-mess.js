@@ -1,9 +1,9 @@
 // Mess hall: tables, VENDO-9, the big announcement screen, the captain's
 // memorial plaque, and a sealed hydroponics door with squeaking behind it.
 
-import { makeView, painting, hangPainting, layer, onBackWall, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=34';
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=34';
-import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex, lampTex } from './roomkit.js?v=34';
+import { makeView, painting, hangPainting, layer, onBackWall, standCutout, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=35';
+import { pixelTexture, RAMPS as R, LIGHT, ART_META } from './pixelart.js?v=35';
+import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex, lampTex } from './roomkit.js?v=35';
 
 export function buildMess(world) {
   const Z = -2.5; // room runs from z +1 (corridor door) to z -6
@@ -229,9 +229,14 @@ export function buildMess(world) {
     const pl = onBackWall(frontP, [0.2, 0.46, 0.28, 0.53]);
     layer(front, plaque, pl.w, pl.h, pl.x, pl.y0, pl.z, { spot: 'plaque', flat: true });
     layer(front, vendo, 1.15, 2.3, -1.55, 0, 4.3, { spot: 'vendo' });
-    layer(front, tableL, 2.2, 1.1, 1.5, 0, 3.3, { spot: 'tables' }).scale.x = -1; // mirrored: seen from the other side
-    layer(front, tableM, 1.65, 1.1, -1.9, 0, 3.0, { spot: 'tables' });
-    layer(front, tableS, 1.1, 1.1, 2.7, 0, 2.0, { spot: 'tables' }).scale.x = -1; // mirrored: seen from the other side
+    // The tables, cut from the original painting and stood back up where
+    // they were painted (far ones first).
+    for (const k of ['back-left', 'back-right', 'front-left', 'front-right']) {
+      const key = 'mess-table-' + k, meta = ART_META.get(key);
+      if (!meta || !meta.bbox) continue;
+      const tex = pixelTexture(meta.bbox[2], meta.bbox[3], () => {}, { key });
+      standCutout(front, frontP, tex, meta.bbox, { spot: 'tables' });
+    }
   } else {
   hangPainting(front, frontP, [
     ['hydro', frontP.region(-3.5, -3.5, 0, 2.45, 3.8, 5.2)],
@@ -261,8 +266,6 @@ export function buildMess(world) {
       ['poster', [0.11, 0.55, 0.19, 0.77]],
       ['urn', [0.22, 0.52, 0.35, 0.7]],
     ]);
-    layer(back, tableS, 1.1, 1.1, -2.0, 0, 2.2, { spot: 'tables' });
-    layer(back, tableM, 1.65, 1.1, 2.1, 0, 2.6, { spot: 'tables' }).scale.x = -1; // mirrored: seen from the other side
   } else {
     hangPainting(back, backP, [['messexit', backP.backRegion(0.29, 0.28, 0.71, 1)]]);
     layer(back, table(777), 2.0, 0.75, -1.6, 0, 2.2, { spot: 'tables' });

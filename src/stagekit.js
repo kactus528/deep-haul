@@ -8,9 +8,9 @@
 // No surrounding geometry. Each room has a front view and a back view.
 
 import * as THREE from 'three';
-import { pixelTexture, RAMPS as R, LIGHT, fbm, ART, ART_META } from './pixelart.js?v=34';
-import { cardMaker } from './roomkit.js?v=34';
-import { cardMaterial } from './vertex.js?v=34';
+import { pixelTexture, RAMPS as R, LIGHT, fbm, ART, ART_META } from './pixelart.js?v=35';
+import { cardMaker } from './roomkit.js?v=35';
+import { cardMaterial } from './vertex.js?v=35';
 
 export const EYE = 1.6; // eye height the paintings are drawn for (m)
 export const DP = 6; // painting distance (m)
@@ -187,6 +187,20 @@ export function onBackWall(pnt, [u0, v0, u1, v1]) {
   const k = pnt.box.depth / DP;
   const X = (u) => (cx - w / 2 + u * w) * k, Y = (v) => EYE + (cy - h / 2 + v * h - EYE) * k;
   return { x: (X(u0) + X(u1)) / 2, y0: Y(v0), w: X(u1) - X(u0), h: Y(v1) - Y(v0), z: pnt.box.depth - 0.03 };
+}
+
+// Stand a piece cut out of a painting back up in the room. bbox is where it
+// sat in the painting (pixels, from the top left). Its bottom edge is taken
+// as where it meets the floor, which sets its distance; it is sized so that
+// from the eye point it covers exactly the spot it was cut from, and it gains
+// real depth when you lean.
+export function standCutout(view, pnt, tex, [bx, by, bw, bh], opts = {}) {
+  const [w, h] = pnt.size, [cx, cy] = pnt.center;
+  const X = (px) => cx - w / 2 + px / PPM, Y = (py) => cy + h / 2 - py / PPM;
+  const yb = Y(by + bh);
+  const z = Math.min(pnt.box ? pnt.box.depth - 0.1 : DP, (DP * EYE) / Math.max(0.05, EYE - yb));
+  const k = z / DP;
+  return layer(view, tex, (bw / PPM) * k, (bh / PPM) * k, ((X(bx) + X(bx + bw)) / 2) * k, EYE + (yb - EYE) * k, z, opts);
 }
 
 // Place a painting in a view, with any number of region hotspots.

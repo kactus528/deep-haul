@@ -7,12 +7,12 @@
 // or point + trigger). Desktop: click things; L/T/C/U pick a command; Space advances.
 
 import * as THREE from 'three';
-import { cardMaterial } from './vertex.js?v=34';
-import { pixelTexture, RAMPS as R } from './pixelart.js?v=34';
-import { HOTSPOTS, OPENING, DORIS_TALK, DORIS_STORY, DEFAULTS } from './script.js?v=34';
-import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=34';
-import { createTalkers, mouthFor, TALKER_ASPECT } from './talkers.js?v=34';
-import { slab } from './slab.js?v=34';
+import { cardMaterial } from './vertex.js?v=35';
+import { pixelTexture, RAMPS as R } from './pixelart.js?v=35';
+import { HOTSPOTS, OPENING, DORIS_TALK, DORIS_STORY, DEFAULTS } from './script.js?v=35';
+import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=35';
+import { createTalkers, mouthFor, TALKER_ASPECT } from './talkers.js?v=35';
+import { slab } from './slab.js?v=35';
 
 // The command pad: one command per thumbstick direction.
 // USE also walks through doors (the old MOVE command).

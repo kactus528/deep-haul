@@ -48,6 +48,46 @@
     "file": "mess-front.png",
     "horizon": 0.38
   },
+  "mess-table-back-left": {
+    "bbox": [
+      67.3,
+      177.8,
+      165,
+      66
+    ],
+    "file": "mess-table-back-left.png",
+    "on": "mess-front"
+  },
+  "mess-table-back-right": {
+    "bbox": [
+      356.3,
+      178.2,
+      158,
+      57
+    ],
+    "file": "mess-table-back-right.png",
+    "on": "mess-front"
+  },
+  "mess-table-front-left": {
+    "bbox": [
+      4.7,
+      203.6,
+      211,
+      128
+    ],
+    "file": "mess-table-front-left.png",
+    "on": "mess-front"
+  },
+  "mess-table-front-right": {
+    "bbox": [
+      387.6,
+      203.6,
+      202,
+      126
+    ],
+    "file": "mess-table-front-right.png",
+    "on": "mess-front"
+  },
   "mess-table-l": {
     "file": "mess-table-l.png"
   },
