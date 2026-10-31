@@ -1,15 +1,15 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=19';
-import { buildCryoBay } from './room-cryo.js?v=19';
-import { buildCorridor } from './room-corridor.js?v=19';
-import { buildMess } from './room-mess.js?v=19';
-import { buildHydro } from './room-hydro.js?v=19';
-import { buildLibrary } from './room-library.js?v=19';
-import { createHud } from './hud.js?v=19';
-import { createUI } from './ui.js?v=19';
+import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=20';
+import { buildCryoBay } from './room-cryo.js?v=20';
+import { buildCorridor } from './room-corridor.js?v=20';
+import { buildMess } from './room-mess.js?v=20';
+import { buildHydro } from './room-hydro.js?v=20';
+import { buildLibrary } from './room-library.js?v=20';
+import { createHud } from './hud.js?v=20';
+import { createUI } from './ui.js?v=20';
 
-const BUILD = 19;
+const BUILD = 20;
 const ANIM_STEP = 1 / 20; // world animation runs at 20 fps
 const PLAY_SPOT = new THREE.Vector2(0, 0); // x, z of the player's fixed spot
 const LEAN_LIMIT = 0.3; // meters before the view fades out
@@ -317,6 +317,25 @@ renderer.xr.addEventListener('sessionend', () => {
   camera.updateProjectionMatrix();
   fit();
 });
+
+// ---------- staying up to date ----------
+// The page checks for a newer build every minute. Outside VR it switches
+// right away; in VR the panel says so and it switches when you exit.
+let newBuild = 0;
+const goToNewBuild = () => location.replace(location.pathname + '?b=' + newBuild);
+async function checkForUpdate() {
+  try {
+    const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
+    const { build } = await r.json();
+    if (build > BUILD) {
+      newBuild = build;
+      if (!renderer.xr.isPresenting) goToNewBuild();
+      else hud.notice(`NEW B${build}: EXIT VR`);
+    }
+  } catch (e) {}
+}
+setInterval(checkForUpdate, 60000);
+renderer.xr.addEventListener('sessionend', () => newBuild && goToNewBuild());
 
 // ---------- headset buttons: A palette, B snap+affine, X low-res, Y 20fps ----------
 const prevPressed = {};

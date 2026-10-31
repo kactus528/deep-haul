@@ -8,8 +8,8 @@
 // No surrounding geometry. Each room has a front view and a back view.
 
 import * as THREE from 'three';
-import { pixelTexture, RAMPS as R, LIGHT, fbm } from './pixelart.js?v=19';
-import { cardMaker } from './roomkit.js?v=19';
+import { pixelTexture, RAMPS as R, LIGHT, fbm } from './pixelart.js?v=20';
+import { cardMaker } from './roomkit.js?v=20';
 
 export const EYE = 1.6; // eye height the paintings are drawn for (m)
 export const DP = 6; // painting distance (m)
@@ -62,6 +62,10 @@ export function painting({ W = 448, H = 352, vy = 120, room, seed = 1, surfaces,
           if (s <= 1) continue; // back wall, painted later
           const z = room.depth / s;
           const toWorld = z / (PPM * DP);
+          // Stark void: no ceiling (darkness above), and the floor near
+          // the viewer dissolves into black.
+          if (s === sT && !room.ceiling) continue;
+          if (s === sB && z < 2.4 && BAYER[y & 3][x & 3] < ((2.4 - z) / 0.9) * 16) continue;
           let res;
           if (s === sB) res = surfaces.floor(dx * toWorld, z, x, y);
           else if (s === sT) res = surfaces.ceil(dx * toWorld, z, x, y);
@@ -84,13 +88,18 @@ export function painting({ W = 448, H = 352, vy = 120, room, seed = 1, surfaces,
     });
     back(p, rect, proj);
     if (after) after(p, proj, rect);
-    // Melt the edges into the void with an ordered-dither fade.
+    // Isolate the scene: an oval spotlight that fades to the void with an
+    // ordered dither, Virtual Boy style. Walls and ceiling above the back
+    // wall's top edge fall into darkness too.
     p.edit((d) => {
-      const edge = 16;
+      const cx = W / 2, cy = (rect.y0 + rect.y1) / 2;
+      const rx = W * 0.5, ry = H * 0.56;
       for (let y = 0; y < H; y++)
         for (let x = 0; x < W; x++) {
-          const e = Math.min(x, W - 1 - x, y, H - 1 - y);
-          if (e < edge && BAYER[y & 3][x & 3] >= (e / edge) * 16) d[(y * W + x) * 4 + 3] = 0;
+          const e = Math.hypot((x - cx) / rx, (y - cy) / ry);
+          let fade = (e - 0.58) / 0.36;
+          if (y < rect.y0) fade = Math.max(fade, (rect.y0 - y) / 46);
+          if (fade > 0 && BAYER[y & 3][x & 3] < fade * 16) d[(y * W + x) * 4 + 3] = 0;
         }
     });
     p.quantize();
