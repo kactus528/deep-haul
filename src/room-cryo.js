@@ -5,9 +5,9 @@
 // Swap in hand-drawn art later; positions and sizes can stay.
 
 import * as THREE from 'three';
-import { cardMaterial, FOG, MAX_QUADS } from './vertex.js?v=20';
-import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling, DP } from './stagekit.js?v=20';
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=20';
+import { cardMaterial, FOG, MAX_QUADS } from './vertex.js?v=21';
+import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling, DP } from './stagekit.js?v=21';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=21';
 
 export function buildCryoBay(world) {
   // =====================================================================
@@ -257,7 +257,7 @@ export function buildCryoBay(world) {
       p.drips(12, 128, 72, 36, { count: 14, len: 18 });
       p.outline('#100c22');
       p.quantize();
-    }, { seed: open ? 11 : 13 });
+    }, { seed: open ? 11 : 13, key: open ? 'pod-open' : 'pod-closed' });
   const podClosed = pod(false);
   const podOpen = pod(true);
 
@@ -309,7 +309,7 @@ export function buildCryoBay(world) {
     p.ao(0, 70, 64, 26, 'down', 0.6);
     p.outline('#100c22');
     p.quantize();
-  }, { seed: 17 });
+  }, { seed: 17, key: 'desk' });
 
   const pipe = pixelTexture(256, 16, (p, w) => {
     p.hcyl(0, 3, w, 10, R.steel, 1, 6.5);
@@ -379,7 +379,7 @@ export function buildCryoBay(world) {
     p.rect(11, 10, 3, 2, R.red[7]);
     p.px(11, 12, R.red[7]);
     p.outline('#100c22');
-  });
+  }, { key: 'doris-eye' });
 
   const beacon = pixelTexture(24, 24, (p) => {
     p.bevel(2, 16, 20, 7, R.dark, 4);
@@ -416,7 +416,7 @@ export function buildCryoBay(world) {
     p.scratches(4, 4, 56, 56, 25, R.rust[6]);
     p.outline('#1a0812');
     p.quantize();
-  }, { seed: 23 });
+  }, { seed: 23, key: 'crate' });
 
   // Spacesuit hanging on a rack
   const suit = pixelTexture(64, 128, (p) => {
@@ -448,7 +448,7 @@ export function buildCryoBay(world) {
     p.light(32, 60, 40, LIGHT.cyan, 0.2);
     p.outline('#200a14');
     p.quantize();
-  }, { seed: 29 });
+  }, { seed: 29, key: 'suit' });
 
   // Gus's mop and bucket (he IS the waste-reclamation tech)
   const mop = pixelTexture(40, 96, (p) => {
@@ -463,7 +463,7 @@ export function buildCryoBay(world) {
     p.grime(0, 60, 40, 36, { scale: 6, amount: 0.4, seed: 121 });
     p.outline('#201008');
     p.quantize();
-  });
+  }, { key: 'mop' });
 
   // Papers spilled on the floor (a decal)
   const papers = pixelTexture(64, 64, (p) => {
@@ -519,7 +519,7 @@ export function buildCryoBay(world) {
   // ---- front view: toward the hatch ----
   const front = makeView(world);
   const frontP = painting({
-    room: { halfW: 3, height: 3.2, depth: 5 }, seed: 1001, surfaces: cryoWalls(1.3, 4.7),
+    room: { halfW: 3, height: 3.2, depth: 5 }, seed: 1001, key: 'cryo-front', surfaces: cryoWalls(1.3, 4.7),
     back: (p, rect) => blitBack(p, wall, rect),
     after: (p, proj) => {
       for (const [x, z] of [[-3, 2.5], [3, 2.5], [-3, 3.8], [3, 3.8]]) {
@@ -556,7 +556,7 @@ export function buildCryoBay(world) {
   // ---- back view: Gus's pod and the rear hatch ----
   const back = makeView(world);
   const backP = painting({
-    room: { halfW: 3, height: 3.2, depth: 3.2 }, seed: 1011, surfaces: cryoWalls(0.9, 3.0),
+    room: { halfW: 3, height: 3.2, depth: 3.2 }, seed: 1011, key: 'cryo-back', surfaces: cryoWalls(0.9, 3.0),
     back: (p, rect) => blitBack(p, wall, rect),
     after: (p, proj) => {
       const [cx, cy] = proj(0, 1, 2.1);
@@ -569,7 +569,7 @@ export function buildCryoBay(world) {
     ['alcoves', backP.region(3, 3, 0.45, 2.35, 0.9, 3.0)],
   ]);
   layer(back, podOpen, 0.9, 1.8, 0, 0, 2.2, { spot: 'mypod' });
-  layer(back, mop, 0.42, 1.0, 0.75, 0, 2.0, { spot: 'mop' });
+  layer(back, mop, 0.5, 1.0, 0.75, 0, 2.0, { spot: 'mop' });
   front.card(papers, 0.6, 0.6, [-0.55, 0.02, -1.9], { rot: [-Math.PI / 2, 0, 0.3], spot: 'papers' });
 
   let t = 0;

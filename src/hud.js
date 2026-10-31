@@ -2,8 +2,8 @@
 // toggles. Lives in the anchored world group so it follows every room.
 
 import * as THREE from 'three';
-import { cardMaterial, settings, MAX_QUADS } from './vertex.js?v=20';
-import { pixelTexture, RAMPS as R } from './pixelart.js?v=20';
+import { cardMaterial, settings, MAX_QUADS } from './vertex.js?v=21';
+import { pixelTexture, RAMPS as R } from './pixelart.js?v=21';
 
 export function createHud(parent, build) {
   let quads = 0;

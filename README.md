@@ -39,3 +39,11 @@ Desktop: drag to look, WASD to lean.
 - `src/main.js` — renderer, flat/VR loop, controls
 
 All art is generated placeholder art in the VERTEX palette, meant to be replaced with hand-drawn cards.
+
+## Real art
+
+Generated or hand-drawn images replace code-drawn placeholders:
+
+1. Crush an image to spec: `python3 tools/crush.py INPUT KEY` (keys and sizes are listed in `tools/crush.py`).
+2. That writes `art/KEY.png` and adds it to `art/manifest.json`.
+3. On the next load, the game uses the image instead of the placeholder.

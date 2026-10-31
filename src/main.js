@@ -1,15 +1,16 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=20';
-import { buildCryoBay } from './room-cryo.js?v=20';
-import { buildCorridor } from './room-corridor.js?v=20';
-import { buildMess } from './room-mess.js?v=20';
-import { buildHydro } from './room-hydro.js?v=20';
-import { buildLibrary } from './room-library.js?v=20';
-import { createHud } from './hud.js?v=20';
-import { createUI } from './ui.js?v=20';
+import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=21';
+import { loadArt } from './pixelart.js?v=21';
+import { buildCryoBay } from './room-cryo.js?v=21';
+import { buildCorridor } from './room-corridor.js?v=21';
+import { buildMess } from './room-mess.js?v=21';
+import { buildHydro } from './room-hydro.js?v=21';
+import { buildLibrary } from './room-library.js?v=21';
+import { createHud } from './hud.js?v=21';
+import { createUI } from './ui.js?v=21';
 
-const BUILD = 20;
+const BUILD = 21;
 const ANIM_STEP = 1 / 20; // world animation runs at 20 fps
 const PLAY_SPOT = new THREE.Vector2(0, 0); // x, z of the player's fixed spot
 const LEAN_LIMIT = 0.3; // meters before the view fades out
@@ -64,6 +65,10 @@ const scene = new THREE.Scene();
 const world = new THREE.Group();
 scene.add(world);
 scene.background = FOG;
+
+// ---------- real art ----------
+// Images listed in art/manifest.json replace placeholders before rooms build.
+await loadArt(BUILD);
 
 // ---------- rooms ----------
 // Each room is a pair of Virtual Boy-style dioramas: a front view and a back

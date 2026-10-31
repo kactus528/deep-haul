@@ -8,8 +8,8 @@
 // No surrounding geometry. Each room has a front view and a back view.
 
 import * as THREE from 'three';
-import { pixelTexture, RAMPS as R, LIGHT, fbm } from './pixelart.js?v=20';
-import { cardMaker } from './roomkit.js?v=20';
+import { pixelTexture, RAMPS as R, LIGHT, fbm } from './pixelart.js?v=21';
+import { cardMaker } from './roomkit.js?v=21';
 
 export const EYE = 1.6; // eye height the paintings are drawn for (m)
 export const DP = 6; // painting distance (m)
@@ -43,7 +43,7 @@ export function makeView(parent) {
 // back(p, rect, proj) paints the back wall inside rect.
 // after(p, proj, rect) adds light, grime, details anywhere.
 // ---------------------------------------------------------------------
-export function painting({ W = 448, H = 352, vy = 120, room, seed = 1, surfaces, back, after }) {
+export function painting({ W = 448, H = 352, vy = 120, room, seed = 1, surfaces, back, after, key = null }) {
   const vx = W / 2;
   const k = (PPM * DP) / room.depth; // px per meter on the back wall
   const L = room.halfW * k;
@@ -103,7 +103,7 @@ export function painting({ W = 448, H = 352, vy = 120, room, seed = 1, surfaces,
         }
     });
     p.quantize();
-  }, { seed });
+  }, { seed, key });
 
   const size = [W / PPM, H / PPM];
   const center = [0, EYE - (H / 2 - vy) / PPM];

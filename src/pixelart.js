@@ -297,7 +297,53 @@ function painter(g, rand, W, H) {
   return p;
 }
 
-export function pixelTexture(w, h, draw, { repeatX = false, repeatY = false, seed = 1 } = {}) {
+// ---------------------------------------------------------------------
+// Real art: images in /art listed in art/manifest.json replace the
+// code-drawn placeholder with the same key. Loaded once before rooms build.
+// ---------------------------------------------------------------------
+export const ART = new Map();
+export async function loadArt(build) {
+  try {
+    const r = await fetch('art/manifest.json?t=' + Date.now(), { cache: 'no-store' });
+    const list = await r.json();
+    await Promise.all(
+      Object.entries(list).map(async ([key, file]) => {
+        const img = new Image();
+        img.src = 'art/' + file + '?b=' + build;
+        try {
+          await img.decode();
+          ART.set(key, img);
+        } catch (e) {
+          console.warn('[Deep Haul] art failed to load:', file);
+        }
+      })
+    );
+  } catch (e) {
+    // no manifest yet: everything stays code-drawn
+  }
+  return ART;
+}
+
+export function pixelTexture(w, h, draw, { repeatX = false, repeatY = false, seed = 1, key = null } = {}) {
+  const art = key && ART.get(key);
+  if (art) {
+    // Hand-made art for this key: use it as-is (already crushed to spec).
+    const cv = document.createElement('canvas');
+    cv.width = art.naturalWidth || art.width;
+    cv.height = art.naturalHeight || art.height;
+    const g = cv.getContext('2d', { willReadFrequently: true });
+    g.imageSmoothingEnabled = false;
+    g.drawImage(art, 0, 0);
+    const t = new THREE.CanvasTexture(cv);
+    t.magFilter = THREE.NearestFilter;
+    t.minFilter = THREE.NearestFilter;
+    t.generateMipmaps = false;
+    if (repeatX) t.wrapS = THREE.RepeatWrapping;
+    if (repeatY) t.wrapT = THREE.RepeatWrapping;
+    t.userData.redraw = () => {};
+    t.userData.art = key;
+    return t;
+  }
   const cv = document.createElement('canvas');
   cv.width = w;
   cv.height = h;
