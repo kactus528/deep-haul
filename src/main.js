@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { VertexPipeline, settings, RES, FOG } from './vertex.js?v=8';
-import { buildCryoBay } from './room-cryo.js?v=8';
+import { VertexPipeline, settings, RES, FOG } from './vertex.js?v=9';
+import { buildCryoBay } from './room-cryo.js?v=9';
 
-const BUILD = 8;
+const BUILD = 9;
 const ANIM_STEP = 1 / 20; // world animation runs at 20 fps
 const PLAY_SPOT = new THREE.Vector2(0, 0); // x, z of the player's fixed spot
 const LEAN_LIMIT = 0.3; // meters before the view fades out
