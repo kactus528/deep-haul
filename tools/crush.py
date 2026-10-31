@@ -20,8 +20,9 @@ ART = os.path.join(ROOT, "art")
 
 # key: (kind, width, height)
 TARGETS = {
-    "cryo-front": ("backdrop", 448, 352),
-    "cryo-back": ("backdrop", 448, 352),
+    # backdrops keep their own aspect ratio; height follows from width
+    "cryo-front": ("backdrop", 512, None),
+    "cryo-back": ("backdrop", 512, None),
     "pod-closed": ("sprite", 96, 192),
     "pod-open": ("sprite", 96, 192),
     "suit": ("sprite", 64, 128),
@@ -64,7 +65,10 @@ def fit_sprite(img_rgba, w, h):
 
 
 def fit_backdrop(img, w, h):
-    """Center-crop to the target aspect, then scale."""
+    """Scale to width w (keeping aspect), or center-crop to w x h if h is set."""
+    if h is None:
+        h = round(img.height * w / img.width)
+        return img.resize((w, h), Image.LANCZOS).convert("RGBA")
     ar = w / h
     if img.width / img.height > ar:
         nw = round(img.height * ar)
@@ -102,7 +106,7 @@ def void_fade(rgba):
     h, w = arr.shape[:2]
     yy, xx = np.mgrid[0:h, 0:w]
     e = np.hypot((xx - w / 2) / (w * 0.5), (yy - h * 0.55) / (h * 0.56))
-    fade = (e - 0.6) / 0.36
+    fade = (e - 0.8) / 0.3
     bay = (np.tile(BAYER + 0.47, (h // 4 + 1, w // 4 + 1))[:h, :w])
     arr[..., 3] = np.where((fade > 0) & (bay < fade), 0, arr[..., 3])
     # near-black pixels at the rim melt into the void too
@@ -117,6 +121,7 @@ def main():
     ap.add_argument("key", choices=sorted(TARGETS))
     ap.add_argument("--colors", type=int, default=64)
     ap.add_argument("--preview", help="also save a 4x preview PNG here")
+    ap.add_argument("--horizon", type=float, default=None, help="backdrops: eye-level line as a fraction of height")
     args = ap.parse_args()
 
     kind, w, h = TARGETS[args.key]
@@ -139,14 +144,17 @@ def main():
     img.save(out)
     man_path = os.path.join(ART, "manifest.json")
     manifest = json.load(open(man_path)) if os.path.exists(man_path) else {}
-    manifest[args.key] = args.key + ".png"
+    entry = {"file": args.key + ".png"}
+    if args.horizon is not None:
+        entry["horizon"] = args.horizon
+    manifest[args.key] = entry
     json.dump(manifest, open(man_path, "w"), indent=2, sort_keys=True)
     if args.preview:
         bg = Image.new("RGBA", img.size, (0, 0, 0, 255))
         bg.alpha_composite(img)
         bg.resize((img.width * 4, img.height * 4), Image.NEAREST).save(args.preview)
     n_colors = len(np.unique(np.array(img)[..., :3][np.array(img)[..., 3] > 0].reshape(-1, 3), axis=0))
-    print(f"{args.key}: {kind} {w}x{h}, {n_colors} colors -> {out}")
+    print(f"{args.key}: {kind} {img.width}x{img.height}, {n_colors} colors -> {out}")
 
 
 if __name__ == "__main__":

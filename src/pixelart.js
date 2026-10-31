@@ -302,12 +302,15 @@ function painter(g, rand, W, H) {
 // code-drawn placeholder with the same key. Loaded once before rooms build.
 // ---------------------------------------------------------------------
 export const ART = new Map();
+export const ART_META = new Map();
 export async function loadArt(build) {
   try {
     const r = await fetch('art/manifest.json?t=' + Date.now(), { cache: 'no-store' });
     const list = await r.json();
     await Promise.all(
-      Object.entries(list).map(async ([key, file]) => {
+      Object.entries(list).map(async ([key, entry]) => {
+        const file = typeof entry === 'string' ? entry : entry.file;
+        if (typeof entry === 'object') ART_META.set(key, entry);
         const img = new Image();
         img.src = 'art/' + file + '?b=' + build;
         try {

@@ -8,8 +8,8 @@
 // No surrounding geometry. Each room has a front view and a back view.
 
 import * as THREE from 'three';
-import { pixelTexture, RAMPS as R, LIGHT, fbm } from './pixelart.js?v=21';
-import { cardMaker } from './roomkit.js?v=21';
+import { pixelTexture, RAMPS as R, LIGHT, fbm, ART, ART_META } from './pixelart.js?v=22';
+import { cardMaker } from './roomkit.js?v=22';
 
 export const EYE = 1.6; // eye height the paintings are drawn for (m)
 export const DP = 6; // painting distance (m)
@@ -105,6 +105,20 @@ export function painting({ W = 448, H = 352, vy = 120, room, seed = 1, surfaces,
     p.quantize();
   }, { seed, key });
 
+  // Real art for this backdrop: size it by the image and put its eye-level
+  // line (horizon) at the player's eye height.
+  const art = key && ART.get(key);
+  if (art) {
+    const aw = art.naturalWidth || art.width, ah = art.naturalHeight || art.height;
+    const avy = (ART_META.get(key)?.horizon ?? 0.45) * ah;
+    return {
+      tex, isArt: true, rect,
+      size: [aw / PPM, ah / PPM],
+      center: [0, EYE - (ah / 2 - avy) / PPM],
+      proj, region: () => [0, 0, 0, 0], backRegion: () => [0, 0, 0, 0],
+    };
+  }
+
   const size = [W / PPM, H / PPM];
   const center = [0, EYE - (H / 2 - vy) / PPM];
   // A world-space box (x0..x1, y0..y1, z0..z1 in meters, z = distance ahead)
@@ -121,7 +135,7 @@ export function painting({ W = 448, H = 352, vy = 120, room, seed = 1, surfaces,
     const y0 = rect.y0 + (rect.y1 - rect.y0) * fy0, y1 = rect.y0 + (rect.y1 - rect.y0) * fy1;
     return [x0 / W, 1 - y1 / H, x1 / W, 1 - y0 / H];
   };
-  return { tex, size, center, proj, rect, region, backRegion };
+  return { tex, isArt: false, size, center, proj, rect, region, backRegion };
 }
 
 // Place a painting in a view, with any number of region hotspots.

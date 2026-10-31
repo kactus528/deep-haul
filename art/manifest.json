@@ -1,1 +1,9 @@
-{}
+{
+  "cryo-front": {
+    "file": "cryo-front.png",
+    "horizon": 0.46
+  },
+  "pod-closed": {
+    "file": "pod-closed.png"
+  }
+}

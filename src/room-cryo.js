@@ -5,9 +5,9 @@
 // Swap in hand-drawn art later; positions and sizes can stay.
 
 import * as THREE from 'three';
-import { cardMaterial, FOG, MAX_QUADS } from './vertex.js?v=21';
-import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling, DP } from './stagekit.js?v=21';
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=21';
+import { cardMaterial, FOG, MAX_QUADS } from './vertex.js?v=22';
+import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling, DP } from './stagekit.js?v=22';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=22';
 
 export function buildCryoBay(world) {
   // =====================================================================
@@ -529,22 +529,28 @@ export function buildCryoBay(world) {
       p.grime(0, 0, p.W, p.H, { scale: 30, amount: 0.25, seed: 1003 });
     },
   });
-  hangPainting(front, frontP, [
-    ['hatch', frontP.backRegion(0.28, 0.21, 0.72, 1)],
-    ['alcoves', frontP.region(-3, -3, 0.45, 2.35, 1.3, 4.7)],
-    ['alcoves', frontP.region(3, 3, 0.45, 2.35, 1.3, 4.7)],
-  ]);
-  layer(front, crate, 0.9, 0.9, -2.0, 0, 4.3, { spot: 'crate' });
-  layer(front, crate, 0.9, 0.9, 2.1, 0, 4.4, { spot: 'crate' });
-  layer(front, sign, 1.2, 0.3, 0, 2.62, 4.8, { spot: 'sign' });
-  const beaconCard = layer(front, beacon, 0.22, 0.22, 0.85, 2.5, 4.8, { noHit: true });
-  const mistCard = layer(front, mist, 6, 0.6, 0, 0, 4.0, { noHit: true });
-  const steamCard = layer(front, steam, 0.4, 0.8, -2.2, 0.05, 4.6, { noHit: true });
+  // With real art, pointable spots are traced on the image itself (uv).
+  const art = frontP.isArt;
+  hangPainting(front, frontP, art
+    ? [['hatch', [0.365, 0.39, 0.635, 0.76]], ['alcoves', [0, 0.3, 0.29, 0.76]], ['alcoves', [0.71, 0.3, 1, 0.76]]]
+    : [
+        ['hatch', frontP.backRegion(0.28, 0.21, 0.72, 1)],
+        ['alcoves', frontP.region(-3, -3, 0.45, 2.35, 1.3, 4.7)],
+        ['alcoves', frontP.region(3, 3, 0.45, 2.35, 1.3, 4.7)],
+      ]);
+  // Code-drawn extras that the painted backdrop already covers are dropped.
+  const extra = (fn) => (art ? null : fn());
+  extra(() => layer(front, crate, 0.9, 0.9, -2.0, 0, 4.3, { spot: 'crate' }));
+  extra(() => layer(front, crate, 0.9, 0.9, 2.1, 0, 4.4, { spot: 'crate' }));
+  extra(() => layer(front, sign, 1.2, 0.3, 0, 2.62, 4.8, { spot: 'sign' }));
+  const beaconCard = extra(() => layer(front, beacon, 0.22, 0.22, 0.85, 2.5, 4.8, { noHit: true }));
+  const mistCard = extra(() => layer(front, mist, 6, 0.6, 0, 0, 4.0, { noHit: true }));
+  const steamCard = extra(() => layer(front, steam, 0.4, 0.8, -2.2, 0.05, 4.6, { noHit: true }));
   const eye = layer(front, eyeTex, 0.4, 0.4, 0, 2.45, 3.8, { spot: 'doris' });
-  layer(front, podClosed, 0.9, 1.8, -1.5, 0, 3.5, { spot: 'pod' });
-  layer(front, podClosed, 0.9, 1.8, 1.5, 0, 3.5, { spot: 'pod' });
-  layer(front, beam, 1.3, 3.0, -1.5, 0.1, 2.6, { noHit: true });
-  layer(front, beam, 1.3, 3.0, 1.5, 0.1, 2.6, { noHit: true });
+  extra(() => layer(front, podClosed, 0.9, 1.8, -1.5, 0, 3.5, { spot: 'pod' }));
+  extra(() => layer(front, podClosed, 0.9, 1.8, 1.5, 0, 3.5, { spot: 'pod' }));
+  extra(() => layer(front, beam, 1.3, 3.0, -1.5, 0.1, 2.6, { noHit: true }));
+  extra(() => layer(front, beam, 1.3, 3.0, 1.5, 0.1, 2.6, { noHit: true }));
   layer(front, suit, 0.75, 1.5, 2.2, 0.25, 2.8, { spot: 'suit' });
   layer(front, cables, 0.35, 1.75, -2.3, 1.35, 2.5, { spot: 'cables' });
   layer(front, podClosed, 0.9, 1.8, -1.7, 0, 2.0, { spot: 'pod' });
@@ -586,10 +592,10 @@ export function buildCryoBay(world) {
         crtState.cursor = cursor;
         crt.userData.redraw();
       }
-      mistCard.material.uniforms.uUvOffset.value.x = (t * 0.03) % 1;
-      steamCard.material.uniforms.uUvOffset.value.y = (-t * 0.25) % 1;
+      if (mistCard) mistCard.material.uniforms.uUvOffset.value.x = (t * 0.03) % 1;
+      if (steamCard) steamCard.material.uniforms.uUvOffset.value.y = (-t * 0.25) % 1;
       eye.material.uniforms.uTint.value = 0.8 + 0.3 * Math.sin(t * 2.2);
-      beaconCard.material.uniforms.uTint.value = Math.floor(t * 2.5) % 2 ? 1.25 : 0.55;
+      if (beaconCard) beaconCard.material.uniforms.uTint.value = Math.floor(t * 2.5) % 2 ? 1.25 : 0.55;
     },
   };
 }
