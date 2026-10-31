@@ -1,4 +1,7 @@
 {
+  "crate": {
+    "file": "crate.png"
+  },
   "cryo-back": {
     "box": [
       0.32,
@@ -21,6 +24,12 @@
   },
   "desk": {
     "file": "desk.png"
+  },
+  "doris-eye": {
+    "file": "doris-eye.png"
+  },
+  "mop": {
+    "file": "mop.png"
   },
   "pod-closed": {
     "file": "pod-closed.png"

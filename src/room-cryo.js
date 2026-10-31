@@ -5,9 +5,9 @@
 // Swap in hand-drawn art later; positions and sizes can stay.
 
 import * as THREE from 'three';
-import { cardMaterial, FOG, MAX_QUADS } from './vertex.js?v=28';
-import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling, DP } from './stagekit.js?v=28';
-import { pixelTexture, RAMPS as R, LIGHT, ART } from './pixelart.js?v=28';
+import { cardMaterial, FOG, MAX_QUADS } from './vertex.js?v=30';
+import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling, DP } from './stagekit.js?v=30';
+import { pixelTexture, RAMPS as R, LIGHT, ART } from './pixelart.js?v=30';
 
 export function buildCryoBay(world) {
   // =====================================================================
@@ -554,7 +554,14 @@ export function buildCryoBay(world) {
   const beaconCard = extra(() => layer(front, beacon, 0.22, 0.22, 0.85, 2.5, 4.8, { noHit: true }));
   const mistCard = extra(() => layer(front, mist, 6, 0.6, 0, 0, 4.0, { noHit: true }));
   const steamCard = extra(() => layer(front, steam, 0.4, 0.8, -2.2, 0.05, 4.6, { noHit: true }));
-  const eye = layer(front, eyeTex, 0.4, 0.4, 0, 2.45, 3.8, { spot: 'doris' });
+  const eye = ART.has('doris-eye')
+    ? layer(front, eyeTex, 0.5, 0.5, 0, 2.4, 3.8, { spot: 'doris' })
+    : layer(front, eyeTex, 0.4, 0.4, 0, 2.45, 3.8, { spot: 'doris' });
+  // Painted crates: a little stack by the hatch, clear of the pods and suit.
+  if (art && ART.has('crate')) {
+    layer(front, crate, 0.9, 0.9, 0.85, 0, 5.3, { spot: 'crate' });
+    layer(front, crate, 0.65, 0.65, 0.95, 0.88, 5.32, { spot: 'crate' });
+  }
   extra(() => layer(front, podClosed, 0.9, 1.8, -1.5, 0, 3.5, { spot: 'pod' }));
   extra(() => layer(front, podClosed, 0.9, 1.8, 1.5, 0, 3.5, { spot: 'pod' }));
   extra(() => layer(front, beam, 1.3, 3.0, -1.5, 0.1, 2.6, { noHit: true }));
@@ -595,7 +602,8 @@ export function buildCryoBay(world) {
         ['alcoves', backP.region(3, 3, 0.45, 2.35, 0.9, 3.0)],
       ]);
   layer(back, podOpen, 0.9, 1.8, 0, 0, 2.2, { spot: 'mypod' });
-  layer(back, mop, 0.5, 1.0, 0.75, 0, 2.0, { spot: 'mop' });
+  if (ART.has('mop')) layer(back, mop, 0.7, 1.4, 0.95, 0, 2.0, { spot: 'mop' });
+  else layer(back, mop, 0.5, 1.0, 0.75, 0, 2.0, { spot: 'mop' });
   front.card(papers, 0.6, 0.6, [-0.55, 0.02, -1.9], { rot: [-Math.PI / 2, 0, 0.3], spot: 'papers' });
 
   let t = 0;
