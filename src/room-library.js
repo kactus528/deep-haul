@@ -1,11 +1,11 @@
 // The ship's library: shelves of data tapes, a card catalog, a reading desk,
 // and LIBRA, the shy terminal who runs the place (and loves DORIS).
 
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=18';
-import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex, lampTex } from './roomkit.js?v=18';
+import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=19';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=19';
+import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex, lampTex } from './roomkit.js?v=19';
 
-export function buildLibrary(group) {
-  const { card, hitMeshes, quads } = cardMaker(group);
+export function buildLibrary(world) {
   const Z = -2; // room runs from z +1 (corridor door) to z -5
 
   const shelfWall = (seed) =>
@@ -32,23 +32,7 @@ export function buildLibrary(group) {
       p.quantize();
     }, { seed });
 
-  const floor = pixelTexture(256, 256, (p, w, h) => {
-    // worn carpet with a pattern
-    p.vgrad(0, 0, w, h, R.red, 2.2, 2.8);
-    for (let y = 0; y < h; y += 16)
-      for (let x = 0; x < w; x += 16) {
-        p.rect(x + 7, y + 3, 2, 10, R.red[1]);
-        p.rect(x + 3, y + 7, 10, 2, R.red[1]);
-        p.px(x + 8, y + 8, R.hazard[4]);
-      }
-    p.grime(0, 0, w, h, { scale: 18, amount: 0.5, thresh: 0.4, seed: 902 });
-    p.light(128, 128, 110, LIGHT.warm, 0.18);
-    p.ao(0, 0, 24, h, 'left', 0.6);
-    p.ao(w - 24, 0, 24, h, 'right', 0.6);
-    p.quantize();
-  }, { seed: 901 });
 
-  const ceiling = ceilingTex(256, 256, { seed: 911, lamps: [[128, 100]] });
   const exit = endWallTex(256, 112, { label: 'CORRIDOR', seed: 921, open: true, arrow: false });
 
   // LIBRA's big amber terminal in a wooden console.
@@ -127,28 +111,64 @@ export function buildLibrary(group) {
 
   const lamp = lampTex(961);
 
-  // ---- layout ----
-  card(floor, 6, 6, [0, 0, Z], { rot: [-H, 0, 0], order: -1, segs: 2 });
-  card(ceiling, 6, 6, [0, 3, Z], { rot: [H, 0, 0], order: -1, segs: 2 });
-  card(shelfWall(971), 6, 3, [0, 1.5, -5], { order: -1, segs: 2, spot: 'shelves' });
-  card(shelfWall(981), 6, 3, [-3, 1.5, Z], { rot: [0, H, 0], order: -1, segs: 2, spot: 'shelves' });
-  card(shelfWall(991), 6, 3, [3, 1.5, Z], { rot: [0, -H, 0], order: -1, segs: 2, spot: 'shelves' });
-  card(exit, 6, 3, [0, 1.5, 1], { rot: [0, Math.PI, 0], order: -1, spot: 'libexit', region: [0.29, 0, 0.71, 0.72] });
+  // Bookshelves painted down both side walls; patterned carpet.
+  const spine = [R.rust, R.cryo, R.red, R.phosphor, R.beige, R.hazard];
+  const fr = (v) => v - Math.floor(v);
+  const libWalls = {
+    floor: (x, z) => {
+      const u = fr(x / 0.4), w = fr(z / 0.4);
+      if ((Math.abs(u - 0.5) < 0.06 && Math.abs(w - 0.5) < 0.3) || (Math.abs(w - 0.5) < 0.06 && Math.abs(u - 0.5) < 0.3)) return [R.red, 1.2];
+      if (Math.abs(u - 0.5) < 0.06 && Math.abs(w - 0.5) < 0.06) return [R.hazard, 4];
+      return [R.red, 2.6];
+    },
+    ceil: lampCeiling({ ramp: R.rust, lamps: [{ x: 0, z: 2.4, w: 0.4, d: 0.4 }] }),
+    wall: (side, z, y) => {
+      if (y < 0.15 || y > 2.7) return [R.rust, 2];
+      const row = fr(y / 0.5);
+      if (row < 0.1) return [R.rust, 5];
+      const k = Math.floor(z / 0.07 + side * 13);
+      const h = fr(Math.sin(k * 12.9898) * 43758.5453);
+      if (row > 0.86 - h * 0.18) return [R.rust, 1];
+      const ramp = spine[Math.floor(h * spine.length)];
+      return [ramp, fr(z / 0.07) < 0.2 ? 5 : 3.4];
+    },
+  };
 
-  const libraCard = card(libraTex, 1.4, 1.22, [0.3, 1.0, -4.6], { spot: 'libra' });
-  card(catalog, 0.7, 1.05, [-2.0, 0.53, -3.6], { face: [0, 0.53, 0], spot: 'catalog' });
-  card(desk, 1.7, 0.74, [-0.9, 0.37, -2.0], { face: [0, 0.37, 0], spot: 'readdesk' });
-  card(sign, 0.8, 0.25, [0.3, 2.3, -4.9], { spot: 'silence' });
-  card(tube, 0.22, 1.9, [2.4, 1.6, -3.9], { face: [0, 1.6, 0], spot: 'tube' });
-  card(lamp, 0.42, 0.32, [0, 2.82, -2.2], { face: [0, 2.82, 0], noHit: true });
+  // ---- front view: LIBRA's terminal, the catalog, the reading desk ----
+  const front = makeView(world);
+  const frontP = painting({
+    room: { halfW: 3, height: 3, depth: 5 }, seed: 1401, surfaces: libWalls,
+    back: (p, rect) => blitBack(p, shelfWall(971), rect),
+    after: (p, proj) => {
+      const [lx, ly] = proj(0.3, 1.0, 4.6);
+      p.light(lx, ly, 80, [255, 170, 60], 0.22);
+    },
+  });
+  hangPainting(front, frontP, [
+    ['shelves', frontP.region(-3, -3, 0.15, 2.7, 1.5, 5)],
+    ['shelves', frontP.region(3, 3, 0.15, 2.7, 1.5, 5)],
+  ]);
+  const libraCard = layer(front, libraTex, 1.4, 1.22, 0.3, 0.39, 4.6, { spot: 'libra' });
+  layer(front, sign, 0.8, 0.25, 0.3, 2.18, 4.85, { spot: 'silence' });
+  layer(front, catalog, 0.7, 1.05, -1.8, 0, 3.4, { spot: 'catalog' });
+  layer(front, tube, 0.22, 1.9, 2.0, 0.65, 3.6, { spot: 'tube' });
+  layer(front, desk, 1.7, 0.74, -0.6, 0, 2.3, { spot: 'readdesk' });
+  layer(front, lamp, 0.42, 0.32, 0, 2.66, 2.4, { noHit: true });
+
+  // ---- back view: the way out ----
+  const back = makeView(world);
+  const backP = painting({
+    room: { halfW: 3, height: 3, depth: 3.2 }, seed: 1411, surfaces: libWalls,
+    back: (p, rect) => blitBack(p, exit, rect),
+  });
+  hangPainting(back, backP, [['libexit', backP.backRegion(0.29, 0.28, 0.71, 1)]]);
 
   let t = 0;
   let lastBlink = null;
   return {
     name: 'LIBRARY',
-    quads: quads(),
-    hitMeshes,
-    fog: [3.5, 10],
+    fog: [8, 20],
+    views: [front, back],
     update(dt) {
       t += dt;
       const blink = (t % 4.2) > 0.15;

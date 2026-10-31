@@ -14,7 +14,7 @@ import * as THREE from 'three';
 THREE.ColorManagement.enabled = false; // raw display values end to end
 
 export const RES = { w: 256, h: 224 };
-export const MAX_QUADS = 64;
+export const MAX_QUADS = 24; // flat layers per view (the VERTEX's sprite planes)
 
 export const settings = {
   // Comfort mode (headset default): pixels live in the art and the world,

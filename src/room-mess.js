@@ -1,16 +1,14 @@
 // Mess hall: tables, VENDO-9, the big announcement screen, the captain's
 // memorial plaque, and a sealed hydroponics door with squeaking behind it.
 
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=18';
-import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex, lampTex } from './roomkit.js?v=18';
+import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=19';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=19';
+import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex, lampTex } from './roomkit.js?v=19';
 
-export function buildMess(group) {
-  const { card, hitMeshes, quads } = cardMaker(group);
+export function buildMess(world) {
   const Z = -2.5; // room runs from z +1 (corridor door) to z -6
 
   const wall = (seed) => wallTex(256, 112, { seed, paint: R.rust, pipes: true, panel: 64, lights: [[64, 28, 50], [192, 28, 50]] });
-  const floor = floorTex(256, 256, { seed: 401, walkway: null, pools: [[75, 128, 60], [181, 128, 60], [128, 50, 50, LIGHT.red]] });
-  const ceiling = ceilingTex(256, 256, { seed: 411, lamps: [[75, 128], [181, 128]] });
   const exit = endWallTex(256, 112, { label: 'CORRIDOR', seed: 421, open: true, arrow: false });
 
   // Long mess table seen from the side, bench in front, leftover trays.
@@ -170,31 +168,73 @@ export function buildMess(group) {
 
   const lamp = lampTex(497);
 
-  // ---- layout ----
-  card(floor, 7, 7, [0, 0, Z], { rot: [-H, 0, 0], order: -1, segs: 2 });
-  card(ceiling, 7, 7, [0, 3, Z], { rot: [H, 0, 0], order: -1, segs: 2 });
-  card(wall(501), 7, 3, [0, 1.5, -6], { order: -1, segs: 2 });
-  card(wall(511), 7, 3, [-3.5, 1.5, Z], { rot: [0, H, 0], order: -1, segs: 2 });
-  card(wall(521), 7, 3, [3.5, 1.5, Z], { rot: [0, -H, 0], order: -1, segs: 2 });
-  card(exit, 7, 3, [0, 1.5, 1], { rot: [0, Math.PI, 0], order: -1, spot: 'messexit', region: [0.29, 0, 0.71, 0.72] });
+  // Hydroponics door and poster, painted into the side walls.
+  const messFeature = (side, z, y) => {
+    if (side === -1 && z > 3.8 && z < 5.2 && y < 2.45) {
+      const u = (z - 3.8) / 1.4;
+      if (u < 0.06 || u > 0.94 || y > 2.38) return [R.steel, 5.4];
+      if (y > 2.0) return [R.phosphor, 5.6];
+      if (y < 0.18) return [R.phosphor, (Math.floor(z * 30) % 3) ? 5 : 3];
+      if (Math.abs(u - 0.5) < 0.02) return [R.dark, 0.8];
+      if (y > 1.0 && y < 1.35 && (Math.floor(z * 25) % 4 === 0)) return [R.steel, 6.6];
+      return [R.phosphor, 2.6 + y * 0.5];
+    }
+    if (side === 1 && z > 4.2 && z < 4.8 && y > 1.3 && y < 2.1) {
+      const u = (z - 4.2) / 0.6;
+      if (u < 0.08 || u > 0.92 || y < 1.36 || y > 2.04) return [R.beige, 5];
+      return [R.suit, (y > 1.84 || (y > 1.58 && y < 1.68) || (y > 1.4 && y < 1.48)) && u > 0.2 && u < 0.8 ? 0.6 : 5];
+    }
+    return null;
+  };
+  const messWalls = (pools) => ({
+    floor: treadFloor({ walkway: 0, tile: 0.5, pools }),
+    ceil: lampCeiling({ lamps: [{ x: -1.5, z: 2.5 }, { x: 1.5, z: 2.5 }] }),
+    wall: panelWall({ paint: R.rust, feature: messFeature }),
+  });
 
-  for (const [x, z] of [[-1.3, -2.2], [1.3, -2.2], [-1.3, -4.0], [1.3, -4.0]]) card(table(530 + x * 10 + z), 2.0, 0.75, [x, 0.38, z], { spot: 'tables' });
-  card(vendo, 0.95, 1.9, [3.0, 0.95, -2.5], { face: [0, 0.95, 0], spot: 'vendo' });
-  const screenCard = card(screenTex, 2.2, 1.3, [0.6, 1.95, -5.95], { spot: 'screen' });
-  card(plaque, 0.6, 0.41, [-2.1, 1.6, -5.95], { spot: 'plaque' });
-  card(counter, 2.6, 0.98, [-1.9, 0.49, -5.55], { spot: 'counter' });
-  card(urn, 0.34, 0.51, [-2.7, 1.23, -5.5], { spot: 'urn' });
-  card(hydro, 1.4, 2.45, [-3.47, 1.22, -3.3], { rot: [0, H, 0], spot: 'hydro' });
-  card(poster, 0.6, 0.8, [3.47, 1.7, -4.7], { rot: [0, -H, 0], spot: 'poster' });
-  for (const [x, z] of [[-1.5, -2.5], [1.5, -2.5], [0, -4.6]]) card(lamp, 0.42, 0.32, [x, 2.82, z], { face: [0, 2.82, 0], noHit: true });
+  // ---- front view: tables, VENDO-9, the big screen ----
+  const front = makeView(world);
+  const frontP = painting({
+    room: { halfW: 3.5, height: 3, depth: 6 }, seed: 1201,
+    surfaces: messWalls([{ x: -1.5, z: 2.5, r: 1.3 }, { x: 1.5, z: 2.5, r: 1.3 }]),
+    back: (p, rect) => blitBack(p, wall(501), rect),
+    after: (p, proj) => {
+      const [hx, hy] = proj(-3.5, 1.0, 4.5);
+      p.light(hx, hy, 50, LIGHT.green, 0.3, 1.4);
+      const [sx, sy] = proj(0.6, 1.9, 5.9);
+      p.light(sx, sy + 30, 90, LIGHT.red, 0.18, 0.7);
+    },
+  });
+  hangPainting(front, frontP, [
+    ['hydro', frontP.region(-3.5, -3.5, 0, 2.45, 3.8, 5.2)],
+    ['poster', frontP.region(3.5, 3.5, 1.3, 2.1, 4.2, 4.8)],
+  ]);
+  const screenCard = layer(front, screenTex, 2.2, 1.3, 0.6, 1.3, 5.8, { spot: 'screen' });
+  layer(front, plaque, 0.6, 0.41, -2.1, 1.4, 5.85, { spot: 'plaque' });
+  layer(front, counter, 2.6, 0.98, -1.9, 0, 5.4, { spot: 'counter' });
+  layer(front, urn, 0.34, 0.51, -2.7, 0.98, 5.35, { spot: 'urn' });
+  for (const [x, z] of [[-1.3, 4.0], [1.3, 4.0]]) layer(front, table(530 + x * 10 + z), 2.0, 0.75, x, 0, z, { spot: 'tables' });
+  layer(front, vendo, 0.95, 1.9, 2.25, 0, 3.2, { spot: 'vendo' });
+  for (const [x, z] of [[-1.3, 2.4], [1.3, 2.4]]) layer(front, table(530 + x * 10 + z), 2.0, 0.75, x, 0, z, { spot: 'tables' });
+  layer(front, lamp, 0.42, 0.32, -1.5, 2.66, 2.5, { noHit: true });
+  layer(front, lamp, 0.42, 0.32, 1.5, 2.66, 2.5, { noHit: true });
+
+  // ---- back view: the way out to the corridor ----
+  const back = makeView(world);
+  const backP = painting({
+    room: { halfW: 3.5, height: 3, depth: 3.2 }, seed: 1211,
+    surfaces: messWalls([{ x: 0, z: 2.2, r: 1.4 }]),
+    back: (p, rect) => blitBack(p, exit, rect),
+  });
+  hangPainting(back, backP, [['messexit', backP.backRegion(0.29, 0.28, 0.71, 1)]]);
+  layer(back, table(777), 2.0, 0.75, -1.6, 0, 2.2, { spot: 'tables' });
 
   let t = 0;
   let lastBlink = null;
   return {
     name: 'MESS HALL',
-    quads: quads(),
-    hitMeshes,
-    fog: [4, 11],
+    fog: [8, 20],
+    views: [front, back],
     update(dt) {
       t += dt;
       const blink = Math.floor(t * (screen.mode === 'doris' ? 3 : 1.5)) % 2 === 0;

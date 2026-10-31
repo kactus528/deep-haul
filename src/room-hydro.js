@@ -2,11 +2,12 @@
 // dead, the ship's hamsters have evolved a little (with "help"), and they
 // built a shrine under the lamp. Fix the lamp and Pockets shows himself.
 
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=18';
-import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex } from './roomkit.js?v=18';
+import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=19';
+import { fbm } from './pixelart.js?v=19';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=19';
+import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex } from './roomkit.js?v=19';
 
-export function buildHydro(group) {
-  const { card, hitMeshes, quads } = cardMaker(group);
+export function buildHydro(world) {
   const Z = -2.5; // room runs from z +1 (mess door) to z -6
 
   // Walls overgrown with vines
@@ -35,23 +36,7 @@ export function buildHydro(group) {
       p.quantize();
     }, { seed });
 
-  const floor = pixelTexture(256, 256, (p, w, h) => {
-    for (let y = 0; y < h; y += 32)
-      for (let x = 0; x < w; x += 32) {
-        p.bevel(x, y, 32, 32, R.dark, 3);
-        for (let k = 4; k < 30; k += 4) p.rect(x + 2, y + k, 28, 1, R.dark[1]);
-      }
-    p.grime(0, 0, w, h, { scale: 20, amount: 0.7, thresh: 0.35, color: '#2a1608', seed: 702 });
-    for (let k = 0; k < 160; k++) {
-      const x = Math.floor(p.rand() * w), y = Math.floor(p.rand() * h);
-      p.disc(x, y, 1 + Math.floor(p.rand() * 2), R.phosphor[1 + Math.floor(p.rand() * 4)]);
-    }
-    p.ao(0, 0, 24, h, 'left', 0.7);
-    p.ao(w - 24, 0, 24, h, 'right', 0.7);
-    p.quantize();
-  }, { seed: 701 });
 
-  const ceiling = ceilingTex(256, 256, { seed: 711, lamps: [] });
   const exit = endWallTex(256, 112, { label: 'MESS HALL', seed: 721, open: true, arrow: false });
 
   // A rack of trays and plants, seen from the front.
@@ -185,29 +170,53 @@ export function buildHydro(group) {
     p.quantize();
   }, { seed: 761 });
 
-  // ---- layout ----
-  card(floor, 7, 7, [0, 0, Z], { rot: [-H, 0, 0], order: -1, segs: 2 });
-  card(ceiling, 7, 7, [0, 3, Z], { rot: [H, 0, 0], order: -1, segs: 2 });
-  card(vinyWall(771), 7, 3, [0, 1.5, -6], { order: -1, segs: 2 });
-  card(vinyWall(781), 7, 3, [-3.5, 1.5, Z], { rot: [0, H, 0], order: -1, segs: 2 });
-  card(vinyWall(791), 7, 3, [3.5, 1.5, Z], { rot: [0, -H, 0], order: -1, segs: 2 });
-  card(exit, 7, 3, [0, 1.5, 1], { rot: [0, Math.PI, 0], order: -1, spot: 'hydroexit', region: [0.29, 0, 0.71, 0.72] });
+  // Jungle surfaces: soil and leaves underfoot, vines up the walls.
+  const baseWall = panelWall({ seed: 79 });
+  const hydroWalls = {
+    floor: (x, z) => {
+      const n = fbm(x * 2.2, z * 2.2, 71);
+      if (n > 0.62) return [R.phosphor, 2.4 + (n - 0.62) * 9];
+      return [R.rust, 1.6 + n * 2];
+    },
+    ceil: lampCeiling({ ramp: R.dark, lamps: [] }),
+    wall: (side, z, y) => {
+      const n = fbm(z * 3 + side * 9, y * 3, 77);
+      if (n > 0.55 - (3 - y) * 0.05) return [R.phosphor, 1.8 + (n - 0.5) * 8];
+      return baseWall(side, z, y);
+    },
+  };
 
-  card(rack(801), 1.6, 2.1, [-2.2, 1.05, -2.0], { face: [0, 1.05, 0], spot: 'racks' });
-  card(rack(811), 1.6, 2.1, [2.2, 1.05, -2.0], { face: [0, 1.05, 0], spot: 'racks' });
-  card(rack(821), 1.6, 2.1, [-2.4, 1.05, -4.4], { face: [0, 1.05, 0], spot: 'racks' });
-  card(rack(831), 1.6, 2.1, [2.4, 1.05, -4.4], { face: [0, 1.05, 0], spot: 'racks' });
-  card(colony(841), 1.5, 0.47, [-2.2, 2.25, -2.0], { face: [0, 2.25, 0], spot: 'colony' });
-  card(colony(851), 1.5, 0.47, [2.2, 2.25, -2.0], { face: [0, 2.25, 0], spot: 'colony' });
-  card(colony(861), 1.5, 0.47, [0.9, 0.2, -4.6], { face: [0, 0.2, 0], spot: 'colony' });
-  card(shrine, 1.3, 1.08, [0, 0.54, -5.2], { spot: 'shrine' });
-  const lampCard = card(growLamp, 2.2, 0.82, [0, 2.6, -4.6], { spot: 'lamp' });
-  const glowCard = card(glow, 2.0, 2.6, [0, 1.35, -4.75], { noHit: true });
-  const pocketsCard = card(pockets, 0.85, 1.5, [-1.0, 0.75, -3.6], { face: [0, 0.75, 0], spot: 'pockets' });
+  // ---- front view: racks, colony, the shrine under the dead lamp ----
+  const front = makeView(world);
+  const frontP = painting({
+    room: { halfW: 3.5, height: 3, depth: 6 }, seed: 1301, surfaces: hydroWalls,
+    back: (p, rect) => blitBack(p, vinyWall(771), rect),
+  });
+  hangPainting(front, frontP, []);
+  layer(front, shrine, 1.3, 1.08, 0, 0, 5.2, { spot: 'shrine' });
+  const glowCard = layer(front, glow, 2.0, 2.6, 0, 0.05, 4.7, { noHit: true });
+  const lampCard = layer(front, growLamp, 2.2, 0.82, 0, 2.2, 4.6, { spot: 'lamp' });
+  layer(front, colony(861), 1.5, 0.47, 0.9, 0, 4.5, { spot: 'colony' });
+  layer(front, rack(821), 1.6, 2.1, -1.9, 0, 4.4, { spot: 'racks' });
+  layer(front, rack(831), 1.6, 2.1, 1.9, 0, 4.4, { spot: 'racks' });
+  const pocketsCard = layer(front, pockets, 0.85, 1.5, -0.9, 0, 3.6, { spot: 'pockets' });
+  layer(front, rack(801), 1.6, 2.1, -1.7, 0, 2.4, { spot: 'racks' });
+  layer(front, rack(811), 1.6, 2.1, 1.7, 0, 2.4, { spot: 'racks' });
+  layer(front, colony(841), 1.5, 0.47, -1.7, 2.0, 2.35, { spot: 'colony' });
+  layer(front, colony(851), 1.5, 0.47, 1.7, 2.0, 2.35, { spot: 'colony' });
+
+  // ---- back view: the way out ----
+  const back = makeView(world);
+  const backP = painting({
+    room: { halfW: 3.5, height: 3, depth: 3.2 }, seed: 1311, surfaces: hydroWalls,
+    back: (p, rect) => blitBack(p, exit, rect),
+  });
+  hangPainting(back, backP, [['hydroexit', backP.backRegion(0.29, 0.28, 0.71, 1)]]);
+  layer(back, rack(841), 1.6, 2.1, -2.0, 0, 2.2, { spot: 'racks' });
+
   glowCard.visible = false;
   pocketsCard.visible = false;
-
-  const all = group.children;
+  const all = [...front.group.children, ...back.group.children];
   const setLight = (on) => {
     lampState.on = on;
     growLamp.userData.redraw();
@@ -220,9 +229,8 @@ export function buildHydro(group) {
   let t = 0;
   return {
     name: 'HYDROPONICS',
-    quads: quads(),
-    hitMeshes,
-    fog: [3, 9],
+    fog: [8, 20],
+    views: [front, back],
     update(dt) {
       t += dt;
       if (lampState.on) lampCard.material.uniforms.uTint.value = 1.1 + 0.08 * Math.sin(t * 9);

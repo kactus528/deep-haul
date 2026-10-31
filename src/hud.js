@@ -2,8 +2,8 @@
 // toggles. Lives in the anchored world group so it follows every room.
 
 import * as THREE from 'three';
-import { cardMaterial, settings, MAX_QUADS } from './vertex.js?v=18';
-import { pixelTexture, RAMPS as R } from './pixelart.js?v=18';
+import { cardMaterial, settings, MAX_QUADS } from './vertex.js?v=19';
+import { pixelTexture, RAMPS as R } from './pixelart.js?v=19';
 
 export function createHud(parent, build) {
   let quads = 0;
@@ -12,7 +12,7 @@ export function createHud(parent, build) {
     p.rect(0, 0, w, h, R.black[1]);
     p.rect(0, 0, w, 1, R.steel[4]);
     p.text(`B${build} ${settings.comfort ? 'COMFORT' : 'AUTHENTIC'}`, 3, 2, settings.comfort ? R.cryo[6] : R.hazard[6], 8);
-    p.text(`${roomName} ${quads}/${MAX_QUADS}`, 3, 13, quads > MAX_QUADS ? R.red[6] : R.phosphor[6], 8);
+    p.text(`${roomName} ${quads}/${MAX_QUADS}L`, 3, 13, quads > MAX_QUADS ? R.red[6] : R.phosphor[6], 8);
     const items = [['LO', settings.lowres], ['PAL', settings.palette], ['SNP', settings.snap], ['AFF', settings.affine], ['20F', settings.steppedAnim]];
     let x = 3;
     for (const [s, on] of items) {

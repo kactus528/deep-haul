@@ -7,11 +7,11 @@
 // or point + trigger). Desktop: click things; L/T/C/U pick a command; Space advances.
 
 import * as THREE from 'three';
-import { cardMaterial } from './vertex.js?v=18';
-import { pixelTexture, RAMPS as R } from './pixelart.js?v=18';
-import { HOTSPOTS, OPENING, DORIS_TALK, DORIS_STORY, DEFAULTS } from './script.js?v=18';
-import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=18';
-import { createTalkers, mouthFor, TALKER_ASPECT } from './talkers.js?v=18';
+import { cardMaterial } from './vertex.js?v=19';
+import { pixelTexture, RAMPS as R } from './pixelart.js?v=19';
+import { HOTSPOTS, OPENING, DORIS_TALK, DORIS_STORY, DEFAULTS } from './script.js?v=19';
+import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=19';
+import { createTalkers, mouthFor, TALKER_ASPECT } from './talkers.js?v=19';
 
 // The command pad: one command per thumbstick direction.
 // USE also walks through doors (the old MOVE command).
@@ -382,6 +382,17 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
       if (!opaqueAt(h.object, h.uv)) continue;
       const ud = h.object.userData;
       let spot = ud.spot || null;
+      // Paintings carry several hotspots as uv rectangles.
+      if (ud.regions) {
+        spot = null;
+        for (const r of ud.regions) {
+          const [u0, v0, u1, v1] = r.region;
+          if (h.uv.x >= u0 && h.uv.x <= u1 && h.uv.y >= v0 && h.uv.y <= v1) {
+            spot = r.spot;
+            break;
+          }
+        }
+      }
       if (spot && ud.region) {
         const [u0, v0, u1, v1] = ud.region;
         if (h.uv.x < u0 || h.uv.x > u1 || h.uv.y < v0 || h.uv.y > v1) spot = null;
@@ -547,7 +558,7 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
   function setHover(mesh, spot) {
     // Highlight small props; big walls (region hotspots) and DORIS's
     // animated eye only get the label and the bigger cursor.
-    const glows = (m) => m && m.userData.spot !== 'doris' && !m.userData.region;
+    const glows = (m) => m && m.userData.spot !== 'doris' && !m.userData.region && !m.userData.regions;
     if (hovered && hovered !== mesh && glows(hovered)) hovered.material.uniforms.uTint.value = hovered.userData.baseTint ?? 1;
     if (mesh && mesh !== hovered && glows(mesh)) {
       mesh.userData.baseTint = mesh.material.uniforms.uTint.value;

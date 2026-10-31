@@ -1,15 +1,15 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=18';
-import { buildCryoBay } from './room-cryo.js?v=18';
-import { buildCorridor } from './room-corridor.js?v=18';
-import { buildMess } from './room-mess.js?v=18';
-import { buildHydro } from './room-hydro.js?v=18';
-import { buildLibrary } from './room-library.js?v=18';
-import { createHud } from './hud.js?v=18';
-import { createUI } from './ui.js?v=18';
+import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=19';
+import { buildCryoBay } from './room-cryo.js?v=19';
+import { buildCorridor } from './room-corridor.js?v=19';
+import { buildMess } from './room-mess.js?v=19';
+import { buildHydro } from './room-hydro.js?v=19';
+import { buildLibrary } from './room-library.js?v=19';
+import { createHud } from './hud.js?v=19';
+import { createUI } from './ui.js?v=19';
 
-const BUILD = 18;
+const BUILD = 19;
 const ANIM_STEP = 1 / 20; // world animation runs at 20 fps
 const PLAY_SPOT = new THREE.Vector2(0, 0); // x, z of the player's fixed spot
 const LEAN_LIMIT = 0.3; // meters before the view fades out
@@ -66,14 +66,12 @@ scene.add(world);
 scene.background = FOG;
 
 // ---------- rooms ----------
-// Each room is built around the player's spot, facing -z, in its own group.
-// Travel is always a fade cut (the camera never moves on its own).
+// Each room is a pair of Virtual Boy-style dioramas: a front view and a back
+// view, each a painting plus a few flat layers floating in the void. Travel
+// and turning around are always fade cuts; the camera never moves.
 const rooms = {};
 function addRoom(id, build) {
-  const group = new THREE.Group();
-  group.visible = false;
-  world.add(group);
-  rooms[id] = Object.assign(build(group), { group });
+  rooms[id] = build(world);
 }
 addRoom('cryo', buildCryoBay);
 addRoom('corridor', buildCorridor);
@@ -81,24 +79,36 @@ addRoom('mess', buildMess);
 addRoom('hydro', buildHydro);
 addRoom('library', buildLibrary);
 let room = rooms.cryo;
-room.group.visible = true;
+let viewIdx = 0;
+const currentView = () => room.views[viewIdx];
+currentView().group.visible = true;
 setFog(...room.fog);
 const hud = createHud(world, BUILD);
-hud.setRoom(room.name, room.quads);
+hud.setRoom(room.name, currentView().layers());
 
-const trans = { state: 'idle', t: 0, target: null, yaw: 0 };
-function goTo(id, yawDeg = 0) {
+// Script gotos may say ":180" (old style) or ":1" for the back view.
+const viewArg = (a) => (String(a) === '180' || String(a) === '1' ? 1 : 0);
+
+const trans = { state: 'idle', t: 0, target: null, view: 0, speed: 0.35 };
+function goTo(id, arg = 0) {
   if (!rooms[id] || trans.state !== 'idle') return;
-  Object.assign(trans, { state: 'out', t: 0, target: id, yaw: Number(yawDeg) || 0 });
+  Object.assign(trans, { state: 'out', t: 0, target: id, view: viewArg(arg), speed: 0.35 });
+  ui.setLocked(true);
+}
+function turnAround() {
+  if (trans.state !== 'idle' || room.views.length < 2) return;
+  Object.assign(trans, { state: 'out', t: 0, target: null, view: (viewIdx + 1) % room.views.length, speed: 0.18 });
   ui.setLocked(true);
 }
 // Returns how faded the view should be for the transition (0..1).
 function updateTransition(dt) {
   if (trans.state === 'idle') return 0;
-  trans.t += dt / 0.35;
+  trans.t += dt / trans.speed;
   if (trans.state === 'out' && trans.t >= 1) {
-    switchRoomNow(trans.target, trans.yaw);
-    ui.saveRoom(trans.target);
+    if (trans.target) {
+      switchRoomNow(trans.target, trans.view);
+      ui.saveRoom(trans.target);
+    } else switchRoomNow(null, trans.view);
     trans.state = 'in';
     trans.t = 0;
     return 1;
@@ -112,14 +122,14 @@ function updateTransition(dt) {
 }
 let transFade = 0;
 
-function switchRoomNow(id, yawDeg = 0) {
-  room.group.visible = false;
-  room = rooms[id];
-  room.group.visible = true;
-  room.group.rotation.y = THREE.MathUtils.degToRad(Number(yawDeg) || 0);
+function switchRoomNow(id, view = 0) {
+  currentView().group.visible = false;
+  if (id) room = rooms[id];
+  viewIdx = Math.min(view, room.views.length - 1);
+  currentView().group.visible = true;
   setFog(...room.fog);
-  if (typeof ui !== 'undefined') ui.setHitMeshes(room.hitMeshes);
-  hud.setRoom(room.name, room.quads);
+  if (typeof ui !== 'undefined') ui.setHitMeshes(currentView().hitMeshes);
+  hud.setRoom(room.name + (viewIdx ? ' (B)' : ''), currentView().layers());
 }
 const camera = new THREE.PerspectiveCamera(60, RES.w / RES.h, 0.05, 50);
 scene.add(camera); // the desktop command menu rides on the camera
@@ -191,8 +201,7 @@ const held = new Set();
 addEventListener('keydown', (e) => {
   if (keyToggles[e.key]) toggle(keyToggles[e.key]);
   if (e.key.toLowerCase() === 'm') setMode(!settings.comfort);
-  if (e.key.toLowerCase() === 'q') flat.yaw += Math.PI / 4;
-  if (e.key.toLowerCase() === 'e') flat.yaw -= Math.PI / 4;
+  if (e.key.toLowerCase() === 'q' || e.key.toLowerCase() === 'e') turnAround();
   held.add(e.key.toLowerCase());
 });
 addEventListener('keyup', (e) => held.delete(e.key.toLowerCase()));
@@ -271,7 +280,7 @@ const ui = createUI({
   renderer,
   scene,
   camera,
-  hitMeshes: room.hitMeshes,
+  hitMeshes: currentView().hitMeshes,
   getHead,
   onAction(name, ...args) {
     if (name === 'goto') goTo(args[0], args[1]);
@@ -284,7 +293,7 @@ const ui = createUI({
 // Put each room back the way the story left it, then return to the last room.
 if (ui.flags.announced) rooms.mess.onAction('screen', 'doris');
 if (ui.flags.lampOn) rooms.hydro.onAction('lamp', 'on');
-if (ui.savedRoom && rooms[ui.savedRoom] && ui.savedRoom !== 'cryo') switchRoomNow(ui.savedRoom);
+if (ui.savedRoom && rooms[ui.savedRoom] && ui.savedRoom !== 'cryo') switchRoomNow(ui.savedRoom, 0);
 
 renderer.xr.addEventListener('sessionstart', () => {
   ui.onSessionStart();
@@ -318,13 +327,12 @@ function pollXRButtons() {
   for (const src of session.inputSources) {
     const gp = src.gamepad;
     if (!gp) continue;
-    // Right thumbstick left/right: snap-turn 45 degrees (the room turns
-    // around you; your spot stays put).
+    // Right thumbstick left/right: turn around (front view <-> back view).
     if (src.handedness === 'right') {
       const x = gp.axes[2] || 0;
       if (!snapLatch && Math.abs(x) > 0.7) {
         snapLatch = true;
-        world.rotation.y += Math.sign(x) * (Math.PI / 4);
+        turnAround();
       } else if (Math.abs(x) < 0.3) snapLatch = false;
     }
     // Either grip button: rebuild the room around where you stand now.

@@ -5,31 +5,11 @@
 // Swap in hand-drawn art later; positions and sizes can stay.
 
 import * as THREE from 'three';
-import { cardMaterial, FOG, MAX_QUADS } from './vertex.js?v=18';
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=18';
+import { cardMaterial, FOG, MAX_QUADS } from './vertex.js?v=19';
+import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling, DP } from './stagekit.js?v=19';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=19';
 
-export function buildCryoBay(scene) {
-  scene.background = FOG;
-  let quads = 0;
-  const hitMeshes = []; // cards the pointer can hit (hotspots and solid walls)
-
-  const card = (tex, w, h, pos, { rot, face, order = 0, segs = 1, counted = true, tint = 1, spot = null, region = null, noHit = false } = {}) => {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h, segs, segs), cardMaterial(tex, { tint }));
-    m.position.set(...pos);
-    if (rot) m.rotation.set(...rot);
-    if (face) m.lookAt(face[0], face[1], face[2]);
-    m.renderOrder = order; // structure (-1), floor decals (-0.5), props (0)
-    if (counted) {
-      m.userData.card = true;
-      quads += segs * segs;
-    }
-    if (spot) m.userData.spot = spot;
-    if (region) m.userData.region = region;
-    if (counted && !noHit) hitMeshes.push(m);
-    scene.add(m);
-    return m;
-  };
-
+export function buildCryoBay(world) {
   // =====================================================================
   // Back / rear wall: the big hatch
   // =====================================================================
@@ -516,49 +496,87 @@ export function buildCryoBay(scene) {
   });
 
   // =====================================================================
-  // Layout (meters; the player stands at the origin facing -z)
+  // Dioramas
   // =====================================================================
-  const H = Math.PI / 2;
-  card(floor, 6, 6.2, [0, 0, -1.9], { rot: [-H, 0, 0], order: -1, segs: 2 });
-  card(ceiling, 6, 6.2, [0, 3.2, -1.9], { rot: [H, 0, 0], order: -1, segs: 2 });
-  card(wall, 6, 3.2, [0, 1.6, -5], { order: -1, segs: 2, spot: 'hatch', region: [0.28, 0, 0.72, 0.79] });
-  card(wall, 6, 3.2, [0, 1.6, 1.2], { rot: [0, Math.PI, 0], order: -1, segs: 2, spot: 'reardoor', region: [0.28, 0, 0.72, 0.79] });
-  card(side, 6.2, 3.2, [-3, 1.6, -1.9], { rot: [0, H, 0], order: -1, segs: 2, spot: 'alcoves', region: [0, 0.1, 1, 0.82] });
-  card(side, 6.2, 3.2, [3, 1.6, -1.9], { rot: [0, -H, 0], order: -1, segs: 2, spot: 'alcoves', region: [0, 0.1, 1, 0.82] });
+  // Side walls lined with frosty cryo alcoves (painted in perspective).
+  const alcoves = (z0, z1) => (side, z, y) => {
+    if (z < z0 || z > z1) return null;
+    const u = (z - z0) % 1.0;
+    if (y < 0.25) return [(Math.floor((z * 8 + y * 8)) % 2) ? R.hazard : R.black, 5];
+    if (u < 0.12 || u > 0.88 || y < 0.45 || y > 2.35) return u < 0.12 || u > 0.88 ? [R.steel, 5.4] : null;
+    if (u < 0.17 || u > 0.83 || y < 0.52 || y > 2.28) return [R.dark, 1.4];
+    const body = Math.abs(u - 0.5) < 0.14 && y < 1.75;
+    const head = Math.abs(u - 0.5) < 0.09 && y >= 1.78 && y < 2.02;
+    if (body || head) return [R.cryo, 2.6];
+    return [R.cryo, 3 + (y - 0.5) * 1.7];
+  };
+  const cryoWalls = (z0, z1) => ({
+    floor: treadFloor({ pools: [{ x: -1.7, z: 2, r: 1.1, s: 1.4 }, { x: 1.7, z: 2, r: 1.1, s: 1.4 }, { x: 0, z: 4, r: 1.4, s: 1 }] }),
+    ceil: lampCeiling({ lamps: [{ x: -1.5, z: 2.3 }, { x: 1.5, z: 2.3 }] }),
+    wall: panelWall({ feature: alcoves(z0, z1) }),
+  });
 
-  card(papers, 0.6, 0.6, [0.45, 0.01, -0.95], { rot: [-H, 0, 0.3], order: -0.5, spot: 'papers' });
-  card(beam, 1.3, 3.0, [-1.5, 1.6, -2.05], { face: [0, 1.6, 0], noHit: true });
-  card(beam, 1.3, 3.0, [1.5, 1.6, -2.05], { face: [0, 1.6, 0], noHit: true });
+  // ---- front view: toward the hatch ----
+  const front = makeView(world);
+  const frontP = painting({
+    room: { halfW: 3, height: 3.2, depth: 5 }, seed: 1001, surfaces: cryoWalls(1.3, 4.7),
+    back: (p, rect) => blitBack(p, wall, rect),
+    after: (p, proj) => {
+      for (const [x, z] of [[-3, 2.5], [3, 2.5], [-3, 3.8], [3, 3.8]]) {
+        const [cx, cy] = proj(x, 1.4, z);
+        p.light(cx, cy, 46, LIGHT.cyan, 0.3, 1.4);
+      }
+      p.grime(0, 0, p.W, p.H, { scale: 30, amount: 0.25, seed: 1003 });
+    },
+  });
+  hangPainting(front, frontP, [
+    ['hatch', frontP.backRegion(0.28, 0.21, 0.72, 1)],
+    ['alcoves', frontP.region(-3, -3, 0.45, 2.35, 1.3, 4.7)],
+    ['alcoves', frontP.region(3, 3, 0.45, 2.35, 1.3, 4.7)],
+  ]);
+  layer(front, crate, 0.9, 0.9, -2.0, 0, 4.3, { spot: 'crate' });
+  layer(front, crate, 0.9, 0.9, 2.1, 0, 4.4, { spot: 'crate' });
+  layer(front, sign, 1.2, 0.3, 0, 2.62, 4.8, { spot: 'sign' });
+  const beaconCard = layer(front, beacon, 0.22, 0.22, 0.85, 2.5, 4.8, { noHit: true });
+  const mistCard = layer(front, mist, 6, 0.6, 0, 0, 4.0, { noHit: true });
+  const steamCard = layer(front, steam, 0.4, 0.8, -2.2, 0.05, 4.6, { noHit: true });
+  const eye = layer(front, eyeTex, 0.4, 0.4, 0, 2.45, 3.8, { spot: 'doris' });
+  layer(front, podClosed, 0.9, 1.8, -1.5, 0, 3.5, { spot: 'pod' });
+  layer(front, podClosed, 0.9, 1.8, 1.5, 0, 3.5, { spot: 'pod' });
+  layer(front, beam, 1.3, 3.0, -1.5, 0.1, 2.6, { noHit: true });
+  layer(front, beam, 1.3, 3.0, 1.5, 0.1, 2.6, { noHit: true });
+  layer(front, suit, 0.75, 1.5, 2.2, 0.25, 2.8, { spot: 'suit' });
+  layer(front, cables, 0.35, 1.75, -2.3, 1.35, 2.5, { spot: 'cables' });
+  layer(front, podClosed, 0.9, 1.8, -1.7, 0, 2.0, { spot: 'pod' });
+  layer(front, podClosed, 0.9, 1.8, 1.7, 0, 2.0, { spot: 'pod' });
+  layer(front, desk, 0.6, 0.9, -0.75, 0, 2.3, { spot: 'terminal' });
+  layer(front, crt, 0.5, 0.375, -0.75, 0.9, 2.25, { spot: 'terminal' });
+  layer(front, mug, 0.1, 0.1, -0.53, 0.9, 2.2, { spot: 'mug' });
 
-  for (const [x, z] of [[-1.7, -1.4], [-1.7, -3.2], [1.7, -1.4], [1.7, -3.2]]) {
-    card(podClosed, 0.9, 1.8, [x, 0.9, z], { face: [0, 0.9, 0], spot: 'pod' });
-  }
-  card(podOpen, 0.9, 1.8, [0, 0.9, 0.8], { face: [0, 0.9, 0], spot: 'mypod' }); // Gus's pod, behind you
-  card(mop, 0.42, 1.0, [0.65, 0.5, 0.7], { face: [0, 0.5, 0], spot: 'mop' });
-
-  card(desk, 0.6, 0.9, [-0.8, 0.45, -1.1], { face: [0, 0.45, 0], spot: 'terminal' });
-  card(crt, 0.5, 0.375, [-0.8, 1.09, -1.08], { face: [0, 1.09, 0], spot: 'terminal' });
-  card(mug, 0.1, 0.1, [-0.58, 0.95, -1.0], { face: [0, 0.95, 0], spot: 'mug' });
-  card(suit, 0.75, 1.5, [2.45, 1.0, -2.3], { face: [0, 1.0, 0], spot: 'suit' });
-  card(cables, 0.35, 1.75, [-2.75, 2.3, -0.55], { face: [0, 2.3, 0], spot: 'cables' });
-  card(pipe, 4.5, 0.28, [0, 2.75, -1.3], { noHit: true });
-  const mistCard = card(mist, 6, 0.6, [0, 0.3, -3.6], { noHit: true });
-  const steamCard = card(steam, 0.4, 0.8, [-2.4, 0.45, -4.5], { face: [0, 0.45, 0], noHit: true });
-  const eye = card(eyeTex, 0.4, 0.4, [0, 2.7, -3.4], { face: [0, 1.6, 0], spot: 'doris' });
-  const beaconCard = card(beacon, 0.22, 0.22, [0.85, 2.62, -4.85], { noHit: true });
-  card(sign, 1.2, 0.3, [0, 2.78, -4.9], { spot: 'sign' });
-  card(crate, 0.9, 0.9, [-2.2, 0.45, -4.2], { face: [0, 0.45, 0], spot: 'crate' });
-  card(crate, 0.9, 0.9, [2.3, 0.45, -4.4], { face: [0, 0.45, 0], spot: 'crate' });
-
-  if (quads > MAX_QUADS) console.warn(`[VERTEX] ${quads} quads exceeds the ${MAX_QUADS} budget`);
-  else console.info(`[VERTEX] ${quads}/${MAX_QUADS} quads`);
+  // ---- back view: Gus's pod and the rear hatch ----
+  const back = makeView(world);
+  const backP = painting({
+    room: { halfW: 3, height: 3.2, depth: 3.2 }, seed: 1011, surfaces: cryoWalls(0.9, 3.0),
+    back: (p, rect) => blitBack(p, wall, rect),
+    after: (p, proj) => {
+      const [cx, cy] = proj(0, 1, 2.1);
+      p.light(cx, cy, 70, LIGHT.red, 0.25, 1.2);
+    },
+  });
+  hangPainting(back, backP, [
+    ['reardoor', backP.backRegion(0.28, 0.21, 0.72, 1)],
+    ['alcoves', backP.region(-3, -3, 0.45, 2.35, 0.9, 3.0)],
+    ['alcoves', backP.region(3, 3, 0.45, 2.35, 0.9, 3.0)],
+  ]);
+  layer(back, podOpen, 0.9, 1.8, 0, 0, 2.2, { spot: 'mypod' });
+  layer(back, mop, 0.42, 1.0, 0.75, 0, 2.0, { spot: 'mop' });
+  front.card(papers, 0.6, 0.6, [-0.55, 0.02, -1.9], { rot: [-Math.PI / 2, 0, 0.3], spot: 'papers' });
 
   let t = 0;
   return {
     name: 'CRYO BAY',
-    quads,
-    hitMeshes,
-    fog: [3, 9],
+    fog: [8, 20],
+    views: [front, back],
     update(dt) {
       t += dt;
       const scroll = Math.floor(t / 1.2);
