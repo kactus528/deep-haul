@@ -19,10 +19,16 @@
     "file": "cryo-front.png",
     "horizon": 0.46
   },
+  "desk": {
+    "file": "desk.png"
+  },
   "pod-closed": {
     "file": "pod-closed.png"
   },
   "pod-open": {
     "file": "pod-open.png"
+  },
+  "suit": {
+    "file": "suit.png"
   }
 }

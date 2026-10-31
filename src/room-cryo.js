@@ -5,9 +5,9 @@
 // Swap in hand-drawn art later; positions and sizes can stay.
 
 import * as THREE from 'three';
-import { cardMaterial, FOG, MAX_QUADS } from './vertex.js?v=26';
-import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling, DP } from './stagekit.js?v=26';
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=26';
+import { cardMaterial, FOG, MAX_QUADS } from './vertex.js?v=28';
+import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling, DP } from './stagekit.js?v=28';
+import { pixelTexture, RAMPS as R, LIGHT, ART } from './pixelart.js?v=28';
 
 export function buildCryoBay(world) {
   // =====================================================================
@@ -285,6 +285,14 @@ export function buildCryoBay(world) {
     p.outline('#1a1220');
   }, { seed: 15 });
 
+  // Just the glowing text, laid over the painted desk's own monitor.
+  const crtGlass = pixelTexture(64, 52, (p) => {
+    p.vgrad(0, 0, 64, 52, R.phosphor, 1.6, 0.6);
+    for (let i = 0; i < 5; i++) p.text(crtLines[(crtState.scroll + i) % crtLines.length], 3, 3 + i * 9, R.phosphor[6], 8);
+    if (crtState.cursor) p.rect(56, 41, 4, 7, R.phosphor[6]);
+    for (let y = 0; y < 52; y += 2) p.rect(0, y, 64, 1, 'rgba(0,0,0,0.3)');
+  }, { seed: 16 });
+
   const desk = pixelTexture(64, 96, (p) => {
     p.vgrad(4, 10, 56, 86, R.steel, 4.4, 2);
     p.rect(4, 10, 1, 86, R.steel[6]);
@@ -551,13 +559,23 @@ export function buildCryoBay(world) {
   extra(() => layer(front, podClosed, 0.9, 1.8, 1.5, 0, 3.5, { spot: 'pod' }));
   extra(() => layer(front, beam, 1.3, 3.0, -1.5, 0.1, 2.6, { noHit: true }));
   extra(() => layer(front, beam, 1.3, 3.0, 1.5, 0.1, 2.6, { noHit: true }));
-  layer(front, suit, 0.75, 1.5, 2.2, 0.25, 2.8, { spot: 'suit' });
+  // The painted suit comes on its own floor-standing rack.
+  if (ART.has('suit')) layer(front, suit, 0.95, 1.9, 1.3, 0, 3.0, { spot: 'suit' });
+  else layer(front, suit, 0.75, 1.5, 2.2, 0.25, 2.8, { spot: 'suit' });
   layer(front, cables, 0.35, 1.75, -2.3, 1.35, 2.5, { spot: 'cables' });
   layer(front, podClosed, 0.9, 1.8, -1.7, 0, 2.0, { spot: 'pod' });
   layer(front, podClosed, 0.9, 1.8, 1.7, 0, 2.0, { spot: 'pod' });
-  layer(front, desk, 0.6, 0.9, -0.75, 0, 2.3, { spot: 'terminal' });
-  layer(front, crt, 0.5, 0.375, -0.75, 0.9, 2.25, { spot: 'terminal' });
-  layer(front, mug, 0.1, 0.1, -0.53, 0.9, 2.2, { spot: 'mug' });
+  if (ART.has('desk')) {
+    // Painted desk: monitor, mug and chair are in the picture; the mug is a
+    // spot traced on it, and the monitor shows DORIS's live readout.
+    const d = layer(front, desk, 1.2, 1.8, -1.0, 0, 2.3, { spot: 'terminal' });
+    d.userData.regions = [{ spot: 'mug', region: [0.151, 0.474, 0.286, 0.55] }, { spot: 'terminal', region: [0, 0, 1, 1] }];
+    layer(front, crtGlass, 0.39, 0.325, -0.996, 1.016, 2.28, { spot: 'terminal', flat: true });
+  } else {
+    layer(front, desk, 0.6, 0.9, -0.75, 0, 2.3, { spot: 'terminal' });
+    layer(front, crt, 0.5, 0.375, -0.75, 0.9, 2.25, { spot: 'terminal' });
+    layer(front, mug, 0.1, 0.1, -0.53, 0.9, 2.2, { spot: 'mug' });
+  }
 
   // ---- back view: Gus's pod and the rear hatch ----
   const back = makeView(world);
@@ -593,6 +611,7 @@ export function buildCryoBay(world) {
         crtState.scroll = scroll;
         crtState.cursor = cursor;
         crt.userData.redraw();
+        crtGlass.userData.redraw();
       }
       if (mistCard) mistCard.material.uniforms.uUvOffset.value.x = (t * 0.03) % 1;
       if (steamCard) steamCard.material.uniforms.uUvOffset.value.y = (-t * 0.25) % 1;

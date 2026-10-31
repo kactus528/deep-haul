@@ -8,7 +8,7 @@
 // eyes:   0 open, 1 half, 2 closed
 // mouths: 0 closed, 1 small, 2 open, 3 round ("oo")
 
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=26';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=28';
 
 const W = 112, H = 128; // portrait + frame
 const OX = 8, OY = 8; // painting origin inside the frame
