@@ -1,9 +1,9 @@
 // The ship's library: shelves of data tapes, a card catalog, a reading desk,
 // and LIBRA, the shy terminal who runs the place (and loves DORIS).
 
-import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=30';
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=30';
-import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex, lampTex } from './roomkit.js?v=30';
+import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=31';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=31';
+import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex, lampTex } from './roomkit.js?v=31';
 
 export function buildLibrary(world) {
   const Z = -2; // room runs from z +1 (corridor door) to z -5
@@ -137,7 +137,7 @@ export function buildLibrary(world) {
   // ---- front view: LIBRA's terminal, the catalog, the reading desk ----
   const front = makeView(world);
   const frontP = painting({
-    room: { halfW: 3, height: 3, depth: 5 }, seed: 1401, surfaces: libWalls,
+    room: { halfW: 3, height: 3, depth: 5 }, seed: 1401, key: 'library-front', surfaces: libWalls,
     back: (p, rect) => blitBack(p, shelfWall(971), rect),
     after: (p, proj) => {
       const [lx, ly] = proj(0.3, 1.0, 4.6);
@@ -158,7 +158,7 @@ export function buildLibrary(world) {
   // ---- back view: the way out ----
   const back = makeView(world);
   const backP = painting({
-    room: { halfW: 3, height: 3, depth: 3.2 }, seed: 1411, surfaces: libWalls,
+    room: { halfW: 3, height: 3, depth: 3.2 }, seed: 1411, key: 'library-back', surfaces: libWalls,
     back: (p, rect) => blitBack(p, exit, rect),
   });
   hangPainting(back, backP, [['libexit', backP.backRegion(0.29, 0.28, 0.71, 1)]]);

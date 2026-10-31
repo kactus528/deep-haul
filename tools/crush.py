@@ -30,6 +30,29 @@ TARGETS = {
     "crate": ("sprite", 64, 64),
     "doris-eye": ("sprite", 48, 48),
     "mop": ("sprite", 48, 96),
+    # mess hall
+    "mess-front": ("backdrop", 512, None),
+    "mess-back": ("backdrop", 512, None),
+    "vendo": ("sprite", 64, 128),
+    "mess-table": ("sprite", 128, 48),
+    # hydroponics
+    "hydro-front": ("backdrop", 512, None),
+    "hydro-back": ("backdrop", 512, None),
+    "pockets": ("sprite", 64, 128),
+    "shrine": ("sprite", 96, 80),
+    "grow-lamp": ("sprite", 128, 48),
+    "hamster-colony": ("sprite", 120, 40),
+    "hydro-rack": ("sprite", 96, 128),
+    # library
+    "library-front": ("backdrop", 512, None),
+    "library-back": ("backdrop", 512, None),
+    "libra": ("sprite", 128, 112),
+    "card-catalog": ("sprite", 64, 96),
+    "reading-desk": ("sprite", 112, 48),
+    "message-tube": ("sprite", 24, 192),
+    # corridor
+    "corridor-front": ("backdrop", 512, None),
+    "corridor-back": ("backdrop", 512, None),
 }
 
 BAYER = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]], dtype=np.float32) / 16.0 - 0.47

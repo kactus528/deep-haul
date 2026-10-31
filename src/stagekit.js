@@ -8,9 +8,9 @@
 // No surrounding geometry. Each room has a front view and a back view.
 
 import * as THREE from 'three';
-import { pixelTexture, RAMPS as R, LIGHT, fbm, ART, ART_META } from './pixelart.js?v=30';
-import { cardMaker } from './roomkit.js?v=30';
-import { cardMaterial } from './vertex.js?v=30';
+import { pixelTexture, RAMPS as R, LIGHT, fbm, ART, ART_META } from './pixelart.js?v=31';
+import { cardMaker } from './roomkit.js?v=31';
+import { cardMaterial } from './vertex.js?v=31';
 
 export const EYE = 1.6; // eye height the paintings are drawn for (m)
 export const DP = 6; // painting distance (m)
@@ -178,6 +178,15 @@ function roomBox({ xl, xr, top, depth: zb }) {
   g.computeBoundingSphere();
   g.computeBoundingBox();
   return g;
+}
+
+// Where a uv rectangle of a painting [u0, v0, u1, v1] (v up) sits on its
+// back wall, in meters, for laying a card flush over painted features.
+export function onBackWall(pnt, [u0, v0, u1, v1]) {
+  const [w, h] = pnt.size, [cx, cy] = pnt.center;
+  const k = pnt.box.depth / DP;
+  const X = (u) => (cx - w / 2 + u * w) * k, Y = (v) => EYE + (cy - h / 2 + v * h - EYE) * k;
+  return { x: (X(u0) + X(u1)) / 2, y0: Y(v0), w: X(u1) - X(u0), h: Y(v1) - Y(v0), z: pnt.box.depth - 0.03 };
 }
 
 // Place a painting in a view, with any number of region hotspots.

@@ -28,6 +28,16 @@
   "doris-eye": {
     "file": "doris-eye.png"
   },
+  "mess-front": {
+    "box": [
+      0.03,
+      0.07,
+      0.97,
+      0.6
+    ],
+    "file": "mess-front.png",
+    "horizon": 0.43
+  },
   "mop": {
     "file": "mop.png"
   },

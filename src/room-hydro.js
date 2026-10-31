@@ -2,10 +2,10 @@
 // dead, the ship's hamsters have evolved a little (with "help"), and they
 // built a shrine under the lamp. Fix the lamp and Pockets shows himself.
 
-import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=30';
-import { fbm } from './pixelart.js?v=30';
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=30';
-import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex } from './roomkit.js?v=30';
+import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=31';
+import { fbm } from './pixelart.js?v=31';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=31';
+import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex } from './roomkit.js?v=31';
 
 export function buildHydro(world) {
   const Z = -2.5; // room runs from z +1 (mess door) to z -6
@@ -189,7 +189,7 @@ export function buildHydro(world) {
   // ---- front view: racks, colony, the shrine under the dead lamp ----
   const front = makeView(world);
   const frontP = painting({
-    room: { halfW: 3.5, height: 3, depth: 6 }, seed: 1301, surfaces: hydroWalls,
+    room: { halfW: 3.5, height: 3, depth: 6 }, seed: 1301, key: 'hydro-front', surfaces: hydroWalls,
     back: (p, rect) => blitBack(p, vinyWall(771), rect),
   });
   hangPainting(front, frontP, []);
@@ -208,7 +208,7 @@ export function buildHydro(world) {
   // ---- back view: the way out ----
   const back = makeView(world);
   const backP = painting({
-    room: { halfW: 3.5, height: 3, depth: 3.2 }, seed: 1311, surfaces: hydroWalls,
+    room: { halfW: 3.5, height: 3, depth: 3.2 }, seed: 1311, key: 'hydro-back', surfaces: hydroWalls,
     back: (p, rect) => blitBack(p, exit, rect),
   });
   hangPainting(back, backP, [['hydroexit', backP.backRegion(0.29, 0.28, 0.71, 1)]]);

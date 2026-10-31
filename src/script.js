@@ -354,7 +354,7 @@ export const HOTSPOTS = {
   },
   screen: {
     name: 'BIG SCREEN',
-    look: ['A big screen over the counter. Today\'s menu: LOAF.'],
+    look: ['A big screen. A news loop older than I am: ORE PRICES HOLD. The board over the counter says today\'s menu is LOAF.'],
     check: ['The menu hasn\'t changed in four hundred years. Neither has the loaf, I bet.'],
     talk: 'DORIS',
   },

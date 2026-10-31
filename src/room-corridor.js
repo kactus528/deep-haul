@@ -1,9 +1,9 @@
 // Deck 2 corridor: between Cryo Bay 3 (behind you) and the mess hall (far
 // end). Crew cabins line the walls: Pike, Shay, the captain, and Q. Leeks.
 
-import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=30';
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=30';
-import { cardMaker, H, wallTex, floorTex, ceilingTex, doorTex, endWallTex, lampTex } from './roomkit.js?v=30';
+import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=31';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=31';
+import { cardMaker, H, wallTex, floorTex, ceilingTex, doorTex, endWallTex, lampTex } from './roomkit.js?v=31';
 
 export function buildCorridor(world) {
   const Z = -4; // corridor runs from z +1.5 (cryo) to z -9.5 (mess)
@@ -74,7 +74,7 @@ export function buildCorridor(world) {
   ];
   const front = makeView(world);
   const frontP = painting({
-    room: { halfW: 1.3, height: 3, depth: 10 }, seed: 1101,
+    room: { halfW: 1.3, height: 3, depth: 10 }, seed: 1101, key: 'corridor-front',
     surfaces: corridorWalls(doors, [{ x: 0, z: 2.6, r: 1.2 }, { x: 0, z: 6, r: 1.2 }]),
     back: (p, rect) => blitBack(p, toMess, rect),
   });
@@ -90,7 +90,7 @@ export function buildCorridor(world) {
   const backDoors = [{ side: 1, z0: 1.7, z1: 2.7, accent: R.hazard, spot: 'librarydoor' }];
   const back = makeView(world);
   const backP = painting({
-    room: { halfW: 1.3, height: 3, depth: 3.4 }, seed: 1111,
+    room: { halfW: 1.3, height: 3, depth: 3.4 }, seed: 1111, key: 'corridor-back',
     surfaces: corridorWalls(backDoors, [{ x: 0, z: 2.2, r: 1.1 }]),
     back: (p, rect) => blitBack(p, toCryo, rect),
   });
