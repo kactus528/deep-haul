@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=12';
-import { buildCryoBay } from './room-cryo.js?v=12';
-import { buildCorridor } from './room-corridor.js?v=12';
-import { buildMess } from './room-mess.js?v=12';
-import { createHud } from './hud.js?v=12';
-import { createUI } from './ui.js?v=12';
+import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=13';
+import { buildCryoBay } from './room-cryo.js?v=13';
+import { buildCorridor } from './room-corridor.js?v=13';
+import { buildMess } from './room-mess.js?v=13';
+import { createHud } from './hud.js?v=13';
+import { createUI } from './ui.js?v=13';
 
-const BUILD = 12;
+const BUILD = 13;
 const ANIM_STEP = 1 / 20; // world animation runs at 20 fps
 const PLAY_SPOT = new THREE.Vector2(0, 0); // x, z of the player's fixed spot
 const LEAN_LIMIT = 0.3; // meters before the view fades out

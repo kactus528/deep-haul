@@ -3,17 +3,25 @@
 // window with typed text, DORIS's portrait and voice blips.
 //
 // Headset: point with the right controller, pull the trigger. The command
-// menu rides on your left hand (thumbstick up/down or point + trigger to
-// pick). Desktop: click things; L/T/C/U pick a command; Space advances.
+// menu rides on your left hand (flick the thumbstick toward a command,
+// or point + trigger). Desktop: click things; L/T/C/U pick a command; Space advances.
 
 import * as THREE from 'three';
-import { cardMaterial } from './vertex.js?v=12';
-import { pixelTexture, RAMPS as R } from './pixelart.js?v=12';
-import { HOTSPOTS, OPENING, DORIS_TALK, DEFAULTS } from './script.js?v=12';
-import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=12';
+import { cardMaterial } from './vertex.js?v=13';
+import { pixelTexture, RAMPS as R } from './pixelart.js?v=13';
+import { HOTSPOTS, OPENING, DORIS_TALK, DEFAULTS } from './script.js?v=13';
+import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=13';
 
-const COMMANDS = ['LOOK', 'TALK', 'CHECK', 'USE', 'MOVE'];
-const MENU_H = 92;
+// The command pad: one command per thumbstick direction.
+// USE also walks through doors (the old MOVE command).
+const COMMANDS = ['LOOK', 'CHECK', 'USE', 'TALK']; // up, right, down, left
+const PAD = [
+  [28, 5], // up
+  [53, 41], // right
+  [28, 77], // down
+  [3, 41], // left
+];
+const BOX_W = 40, BOX_H = 14;
 const CPS = 40; // typed characters per second
 const ROWS = 4;
 
@@ -240,24 +248,24 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
   // =====================================================================
   // Command menu
   // =====================================================================
-  const menuTex = pixelTexture(96, MENU_H, (p, w, h) => {
-    p.bevel(0, 0, w, h, R.beige, 4);
-    p.rect(1, 1, w - 2, 1, R.beige[7]);
-    p.inset(4, 4, w - 8, h - 8, R.black, 1);
-    p.vgrad(6, 6, w - 12, h - 12, R.dark, 1.6, 0.4);
-    p.text('COMMAND', 10, 7, R.hazard[6], 8);
+  const menuTex = pixelTexture(96, 96, (p, w, h) => {
+    p.disc(48, 48, 46, R.beige[2]);
+    p.disc(48, 48, 44, R.dark[1]);
+    p.disc(48, 48, 42, R.dark[2]);
+    // d-pad in the middle, the selected arm lit
+    p.bevel(44, 30, 8, 36, R.steel, 3);
+    p.bevel(30, 44, 36, 8, R.steel, 3);
+    const arm = [[45, 31, 6, 12], [53, 45, 12, 6], [45, 53, 6, 12], [31, 45, 12, 6]][state.cmd];
+    p.rect(arm[0], arm[1], arm[2], arm[3], R.cryo[5]);
     COMMANDS.forEach((c, i) => {
-      const y = 20 + i * 13;
+      const [x, y] = PAD[i];
       const sel = i === state.cmd;
-      if (sel) {
-        p.rect(8, y - 2, w - 16, 12, R.cryo[2]);
-        p.rect(8, y - 2, w - 16, 1, R.cryo[4]);
-        p.text('>', 11, y, R.cryo[7], 8);
-      }
-      p.text(c, 21, y, sel ? R.cryo[7] : R.beige[5], 8);
+      p.bevel(x, y, BOX_W, BOX_H, sel ? R.cryo : R.beige, sel ? 4 : 3);
+      p.text(c, x + Math.floor((BOX_W - c.length * 5) / 2), y + 3, sel ? R.black[0] : R.beige[7], 8);
     });
+    p.outline('#100c22');
   });
-  const menuCard = uiCard(menuTex, 0.18, 0.18 * (MENU_H / 96), 30);
+  const menuCard = uiCard(menuTex, 0.17, 0.17, 30);
   function setCmd(i) {
     if (i === state.cmd) return;
     state.cmd = i;
@@ -302,9 +310,10 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
     const targets = menuCard.parent ? [menuCard, ...hitMeshes] : hitMeshes;
     for (const h of raycaster.intersectObjects(targets, false)) {
       if (h.object === menuCard) {
-        const cy = (1 - h.uv.y) * MENU_H;
-        const idx = Math.floor((cy - 18) / 13);
-        return { menu: true, index: idx >= 0 && idx < COMMANDS.length ? idx : -1, point: h.point, dist: h.distance };
+        const dx = h.uv.x - 0.5, dy = 0.5 - h.uv.y; // +dy = down
+        let idx = -1;
+        if (Math.hypot(dx, dy) > 0.08) idx = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : dy < 0 ? 0 : 2;
+        return { menu: true, index: idx, point: h.point, dist: h.distance };
       }
       if (!opaqueAt(h.object, h.uv)) continue;
       const ud = h.object.userData;
@@ -389,7 +398,7 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
   });
   addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
-    const idx = { l: 0, t: 1, c: 2, u: 3, g: 4 }[k];
+    const idx = { l: 0, c: 1, u: 2, t: 3 }[k];
     if (idx !== undefined) setCmd(idx);
     if (k === ' ' || k === 'enter') {
       initAudio();
@@ -417,7 +426,8 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
     const key = `${spotId}.${cmd}`;
     const n = state.counts[key] || 0;
     state.counts[key] = n + 1;
-    const val = spot[cmd];
+    // USE on a door walks through it (scripts may still say "move").
+    const val = cmd === 'use' && !spot.use ? spot.move : spot[cmd];
     let lines;
     if (cmd === 'talk' && val === 'DORIS') {
       lines = DORIS_TALK[state.dorisTalk % DORIS_TALK.length];
@@ -517,11 +527,13 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
     // Left thumbstick moves through the command menu
     const left = xr && leftCtrl();
     if (left && left.gamepad) {
-      const y = left.gamepad.axes[3] || 0;
-      if (!left.latch && Math.abs(y) > 0.6) {
+      // Flick the stick toward a command to pick it.
+      const x = left.gamepad.axes[2] || 0, y = left.gamepad.axes[3] || 0;
+      const mag = Math.hypot(x, y);
+      if (!left.latch && mag > 0.6) {
         left.latch = true;
-        setCmd((state.cmd + (y > 0 ? 1 : COMMANDS.length - 1)) % COMMANDS.length);
-      } else if (Math.abs(y) < 0.3) left.latch = false;
+        setCmd(Math.abs(x) > Math.abs(y) ? (x > 0 ? 1 : 3) : y < 0 ? 0 : 2);
+      } else if (mag < 0.3) left.latch = false;
     }
 
     // Pointer, cursor, hover

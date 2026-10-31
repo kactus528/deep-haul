@@ -21,17 +21,17 @@
 </head>
 <body>
 <div id="help">
-  <b>DEEP HAUL — VERTEX TEST ROOM · BUILD 12</b><br>
-  Click or press Space to wake up. Drag to look, WASD to lean. Click things to use the selected command; L/T/C/U/G pick LOOK/TALK/CHECK/USE/MOVE; Space advances text.<br>
+  <b>DEEP HAUL — VERTEX TEST ROOM · BUILD 13</b><br>
+  Click or press Space to wake up. Drag to look, WASD to lean. Click things to use the selected command; L/C/U/T pick LOOK/CHECK/USE/TALK (USE also goes through doors); Space advances text.<br>
   M Comfort/Authentic · 1 low-res · 2 palette · 3 vertex snap · 4 affine textures · 5 20fps animation · 6 scanlines<br>
-  <b>Quest 2:</b> press Enter VR. Point with the right controller and pull the trigger; the command menu is on your left hand (thumbstick up/down). Starts in Comfort mode; click either thumbstick for Authentic. A palette · B snap+affine · X low-res · Y 20fps · either grip recenters the room
+  <b>Quest 2:</b> press Enter VR. Point with the right controller and pull the trigger; the command pad is on your left hand: flick the thumbstick up LOOK, right CHECK, down USE, left TALK. Starts in Comfort mode; click either thumbstick for Authentic. A palette · B snap+affine · X low-res · Y 20fps · either grip recenters the room
 </div>
 <script>
   // Auto-update: browsers (and the Quest) cache this page for ~10 minutes.
   // Ask the server for the newest build number, bypassing the cache, and
   // jump to it if this copy is older.
   (async () => {
-    const THIS_BUILD = 12;
+    const THIS_BUILD = 13;
     try {
       const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
       const { build } = await r.json();
@@ -39,6 +39,6 @@
     } catch (e) {}
   })();
 </script>
-<script type="module" src="src/main.js?v=12"></script>
+<script type="module" src="src/main.js?v=13"></script>
 </body>
 </html>
