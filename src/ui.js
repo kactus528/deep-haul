@@ -1,0 +1,483 @@
+// Snatcher-style interface for the VERTEX: a pointer, a command menu
+// (LOOK / TALK / CHECK / USE), hover labels, and a floating CRT dialogue
+// window with typed text, DORIS's portrait and voice blips.
+//
+// Headset: point with the right controller, pull the trigger. The command
+// menu rides on your left hand (thumbstick up/down or point + trigger to
+// pick). Desktop: click things; L/T/C/U pick a command; Space advances.
+
+import * as THREE from 'three';
+import { cardMaterial } from './vertex.js?v=10';
+import { pixelTexture, RAMPS as R } from './pixelart.js?v=10';
+import { HOTSPOTS, OPENING, DORIS_TALK, DEFAULTS } from './script.js?v=10';
+import { initAudio, blip, click, confirm } from './voice.js?v=10';
+
+const COMMANDS = ['LOOK', 'TALK', 'CHECK', 'USE'];
+const CPS = 40; // typed characters per second
+const ROWS = 4;
+
+function uiCard(tex, w, h, order) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), cardMaterial(tex, { noSnap: true }));
+  m.renderOrder = order;
+  m.frustumCulled = false;
+  return m;
+}
+
+function wrap(text, max) {
+  const lines = [];
+  let cur = '';
+  for (const word of text.split(' ')) {
+    const next = cur ? cur + ' ' + word : word;
+    if (next.length > max && cur) {
+      lines.push(cur);
+      cur = word;
+    } else cur = next;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+function opaqueAt(mesh, uv) {
+  const map = mesh.material.uniforms && mesh.material.uniforms.map && mesh.material.uniforms.map.value;
+  const img = map && map.image;
+  if (!img || !img.getContext || !uv) return true;
+  const x = Math.min(img.width - 1, Math.max(0, Math.floor(uv.x * img.width)));
+  const y = Math.min(img.height - 1, Math.max(0, Math.floor((1 - uv.y) * img.height)));
+  return img.getContext('2d').getImageData(x, y, 1, 1).data[3] > 127;
+}
+
+export function createUI({ renderer, scene, camera, hitMeshes, getHead }) {
+  const state = { cmd: 0, counts: {}, dorisTalk: 0, openingDone: false, openingTimer: -1 };
+
+  // =====================================================================
+  // Dialogue window
+  // =====================================================================
+  const dlg = { open: false, speaker: '', lines: [], flat: '', shown: 0, queue: [], acc: 0, blinkT: 0, blink: true, dirty: false, redrawT: 0 };
+
+  const drawPortrait = (p, x, y) => {
+    p.bevel(x, y, 48, 48, R.steel, 3);
+    p.inset(x + 2, y + 2, 44, 44, R.black, 1);
+    p.vgrad(x + 3, y + 3, 42, 42, R.dark, 2.2, 0.4);
+    const cx = x + 24, cy = y + 25;
+    for (let j = -17; j <= 17; j++)
+      for (let i = -17; i <= 17; i++) {
+        const d = Math.hypot(i, j);
+        if (d < 10) p.px(cx + i, cy + j, R.red[Math.max(1, Math.min(7, Math.round(7.2 - d * 0.62)))]);
+        else if (d < 15) p.px(cx + i, cy + j, R.steel[Math.max(1, Math.min(7, Math.round(4.2 - (i + j) / 7)))]);
+      }
+    p.rect(cx - 6, cy - 6, 3, 2, R.red[7]);
+    p.px(cx - 6, cy - 4, R.red[7]);
+    // eyelids give her a little expression
+    p.rect(cx - 15, cy - 14, 30, 3, R.steel[5]);
+    p.rect(cx - 15, cy - 12, 30, 1, R.steel[2]);
+    for (let yy = y + 4; yy < y + 46; yy += 2) p.rect(x + 3, yy, 42, 1, 'rgba(0,0,0,0.22)');
+  };
+
+  const dlgTex = pixelTexture(256, 72, (p, w, h) => {
+    p.bevel(0, 0, w, h, R.beige, 4);
+    p.rect(1, 1, w - 2, 1, R.beige[7]);
+    p.inset(4, 4, w - 8, h - 8, R.black, 1);
+    p.vgrad(6, 6, w - 12, h - 12, R.dark, 1.6, 0.3);
+    let tx = 12;
+    const doris = dlg.speaker === 'DORIS';
+    if (doris) {
+      drawPortrait(p, 8, 10);
+      tx = 64;
+    }
+    const tag = doris ? 'DORIS' : 'GUS';
+    p.bevel(tx - 2, 8, tag.length * 5 + 8, 10, doris ? R.red : R.cryo, 4);
+    p.text(tag, tx + 2, 9, R.black[0], 7);
+    let left = dlg.shown;
+    dlg.lines.forEach((ln, i) => {
+      const s = ln.slice(0, Math.max(0, left));
+      left -= ln.length;
+      if (s) p.text(s, tx, 22 + i * 11, doris ? R.beige[7] : R.cryo[6], 8);
+    });
+    if (dlg.shown >= dlg.flat.length && dlg.blink) {
+      for (let k = 0; k < 4; k++) p.rect(w - 18 + k, h - 15 + k, 7 - k * 2, 1, R.hazard[6]);
+    }
+    for (let y = 6; y < h - 6; y += 2) p.rect(6, y, w - 12, 1, 'rgba(0,0,0,0.18)');
+  });
+  const dlgCard = uiCard(dlgTex, 0.72, 0.2025, 30);
+  dlgCard.visible = false;
+  scene.add(dlgCard);
+
+  function pagesFor(rawLines) {
+    const pages = [];
+    for (const raw of rawLines) {
+      const doris = raw.startsWith('D:');
+      const speaker = doris ? 'DORIS' : 'GUS';
+      const text = doris ? raw.slice(2) : raw.replace(/^G:/, '');
+      const lines = wrap(text, doris ? 34 : 44);
+      for (let i = 0; i < lines.length; i += ROWS) pages.push({ speaker, lines: lines.slice(i, i + ROWS) });
+    }
+    return pages;
+  }
+
+  function placeDialogue() {
+    const { pos, yaw } = getHead();
+    const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+    dlgCard.position.set(pos.x + fx * 0.85, pos.y - 0.3, pos.z + fz * 0.85);
+    dlgCard.lookAt(pos.x, pos.y - 0.05, pos.z);
+  }
+
+  function showPage(page) {
+    dlg.speaker = page.speaker;
+    dlg.lines = page.lines;
+    dlg.flat = page.lines.join('');
+    dlg.shown = 0;
+    dlg.acc = 0;
+    dlg.dirty = true;
+  }
+
+  function say(rawLines) {
+    dlg.queue = pagesFor(rawLines);
+    if (!dlg.queue.length) return;
+    placeDialogue();
+    dlg.open = true;
+    dlgCard.visible = true;
+    showPage(dlg.queue.shift());
+    dlgTex.userData.redraw();
+  }
+
+  function advance() {
+    if (!dlg.open) return;
+    click();
+    if (dlg.shown < dlg.flat.length) {
+      dlg.shown = dlg.flat.length;
+      dlg.dirty = true;
+      return;
+    }
+    const next = dlg.queue.shift();
+    if (next) showPage(next);
+    else {
+      dlg.open = false;
+      dlgCard.visible = false;
+    }
+  }
+
+  // =====================================================================
+  // Command menu
+  // =====================================================================
+  const menuTex = pixelTexture(96, 80, (p, w, h) => {
+    p.bevel(0, 0, w, h, R.beige, 4);
+    p.rect(1, 1, w - 2, 1, R.beige[7]);
+    p.inset(4, 4, w - 8, h - 8, R.black, 1);
+    p.vgrad(6, 6, w - 12, h - 12, R.dark, 1.6, 0.4);
+    p.text('COMMAND', 10, 7, R.hazard[6], 8);
+    COMMANDS.forEach((c, i) => {
+      const y = 20 + i * 13;
+      const sel = i === state.cmd;
+      if (sel) {
+        p.rect(8, y - 2, w - 16, 12, R.cryo[2]);
+        p.rect(8, y - 2, w - 16, 1, R.cryo[4]);
+        p.text('>', 11, y, R.cryo[7], 8);
+      }
+      p.text(c, 21, y, sel ? R.cryo[7] : R.beige[5], 8);
+    });
+  });
+  const menuCard = uiCard(menuTex, 0.18, 0.15, 30);
+  function setCmd(i) {
+    if (i === state.cmd) return;
+    state.cmd = i;
+    menuTex.userData.redraw();
+    click();
+  }
+
+  // =====================================================================
+  // Cursor and hover label
+  // =====================================================================
+  const cursorTex = pixelTexture(16, 16, (p) => {
+    for (const [x, y, w, h] of [[7, 0, 2, 6], [7, 10, 2, 6], [0, 7, 6, 2], [10, 7, 6, 2]]) p.rect(x, y, w, h, R.beige[7]);
+    p.rect(7, 7, 2, 2, R.hazard[6]);
+    p.outline('#100c22');
+  });
+  const cursor = uiCard(cursorTex, 1, 1, 40);
+  scene.add(cursor);
+
+  let labelText = '';
+  const labelTex = pixelTexture(112, 14, (p, w, h) => {
+    if (!labelText) return;
+    const lw = Math.min(w, labelText.length * 5 + 10);
+    const x0 = Math.floor((w - lw) / 2);
+    p.bevel(x0, 0, lw, h, R.dark, 4);
+    p.text(labelText, x0 + 5, 3, R.hazard[6], 8);
+  });
+  const label = uiCard(labelTex, 1, 0.125, 40);
+  label.visible = false;
+  scene.add(label);
+
+  // =====================================================================
+  // Pointing
+  // =====================================================================
+  const raycaster = new THREE.Raycaster();
+  raycaster.far = 25;
+  const tmpMat = new THREE.Matrix4();
+  const tmpO = new THREE.Vector3();
+  const tmpD = new THREE.Vector3();
+
+  function hitTest(origin, dir) {
+    raycaster.set(origin, dir);
+    const targets = menuCard.parent ? [menuCard, ...hitMeshes] : hitMeshes;
+    for (const h of raycaster.intersectObjects(targets, false)) {
+      if (h.object === menuCard) {
+        const cy = (1 - h.uv.y) * 80;
+        const idx = Math.floor((cy - 18) / 13);
+        return { menu: true, index: idx >= 0 && idx < COMMANDS.length ? idx : -1, point: h.point, dist: h.distance };
+      }
+      if (!opaqueAt(h.object, h.uv)) continue;
+      const ud = h.object.userData;
+      let spot = ud.spot || null;
+      if (spot && ud.region) {
+        const [u0, v0, u1, v1] = ud.region;
+        if (h.uv.x < u0 || h.uv.x > u1 || h.uv.y < v0 || h.uv.y > v1) spot = null;
+      }
+      return { mesh: h.object, spot, point: h.point, dist: h.distance };
+    }
+    return null;
+  }
+
+  // ---- headset controllers ----
+  const laserGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]);
+  const laserMat = new THREE.LineBasicMaterial({ color: 0x7fd8cf, transparent: true, opacity: 0.45 });
+  const ctrls = [0, 1].map((i) => {
+    const ray = renderer.xr.getController(i);
+    const grip = renderer.xr.getControllerGrip(i);
+    scene.add(ray);
+    scene.add(grip);
+    const laser = new THREE.Line(laserGeo, laserMat);
+    laser.visible = false;
+    laser.frustumCulled = false;
+    ray.add(laser);
+    const c = { ray, grip, laser, hand: null, gamepad: null, latch: false };
+    ray.addEventListener('connected', (e) => {
+      c.hand = e.data.handedness;
+      c.gamepad = e.data.gamepad || null;
+      attachMenu();
+    });
+    ray.addEventListener('disconnected', () => {
+      c.hand = null;
+      c.gamepad = null;
+      attachMenu();
+    });
+    ray.addEventListener('selectstart', () => onSelect(c));
+    return c;
+  });
+  const pointerCtrl = () => ctrls.find((c) => c.hand === 'right') || ctrls.find((c) => c.hand);
+  const leftCtrl = () => ctrls.find((c) => c.hand === 'left');
+
+  function ctrlRay(c) {
+    c.ray.updateMatrixWorld(true);
+    tmpO.setFromMatrixPosition(c.ray.matrixWorld);
+    tmpMat.identity().extractRotation(c.ray.matrixWorld);
+    tmpD.set(0, 0, -1).applyMatrix4(tmpMat).normalize();
+    return { origin: tmpO.clone(), dir: tmpD.clone() };
+  }
+
+  function attachMenu() {
+    if (menuCard.parent) menuCard.parent.remove(menuCard);
+    if (renderer.xr.isPresenting) {
+      const left = leftCtrl();
+      if (!left) return;
+      left.grip.add(menuCard);
+      menuCard.position.set(0, 0.09, -0.03);
+      menuCard.rotation.set(-0.7, 0, 0);
+    } else {
+      camera.add(menuCard);
+      menuCard.position.set(-0.32, -0.21, -0.65);
+      menuCard.rotation.set(0, 0, 0);
+    }
+  }
+  attachMenu();
+
+  // ---- desktop mouse ----
+  const mouse = new THREE.Vector2();
+  let mouseInside = false;
+  let downAt = null;
+  const el = renderer.domElement;
+  el.addEventListener('pointermove', (e) => {
+    const r = el.getBoundingClientRect();
+    mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    mouseInside = true;
+  });
+  el.addEventListener('pointerleave', () => (mouseInside = false));
+  el.addEventListener('pointerdown', (e) => (downAt = [e.clientX, e.clientY]));
+  el.addEventListener('pointerup', (e) => {
+    if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < 5) onSelect(null);
+    downAt = null;
+  });
+  addEventListener('keydown', (e) => {
+    const k = e.key.toLowerCase();
+    const idx = { l: 0, t: 1, c: 2, u: 3 }[k];
+    if (idx !== undefined) setCmd(idx);
+    if (k === ' ' || k === 'enter') {
+      initAudio();
+      if (!state.openingDone) startOpening();
+      else advance();
+      e.preventDefault();
+    }
+  });
+  function mouseRay() {
+    if (!mouseInside) return null;
+    raycaster.setFromCamera(mouse, camera);
+    return { origin: raycaster.ray.origin.clone(), dir: raycaster.ray.direction.clone() };
+  }
+
+  // =====================================================================
+  // Actions
+  // =====================================================================
+  function runCommand(spotId) {
+    const cmd = COMMANDS[state.cmd].toLowerCase();
+    const spot = HOTSPOTS[spotId];
+    let lines;
+    if (cmd === 'talk' && spot.talk === 'DORIS') {
+      lines = DORIS_TALK[state.dorisTalk % DORIS_TALK.length];
+      state.dorisTalk++;
+    } else {
+      const variants = spot[cmd];
+      if (!variants || !variants.length) lines = [DEFAULTS[cmd]];
+      else {
+        const key = `${spotId}.${cmd}`;
+        const n = state.counts[key] || 0;
+        state.counts[key] = n + 1;
+        const v = variants[Math.min(n, variants.length - 1)];
+        lines = Array.isArray(v) ? v : [v];
+      }
+    }
+    confirm();
+    say(lines);
+  }
+
+  function onSelect(source) {
+    initAudio();
+    if (dlg.open) return advance();
+    if (!state.openingDone && !renderer.xr.isPresenting) return startOpening();
+    const ray = source ? ctrlRay(source) : mouseRay();
+    if (!ray) return;
+    const hit = hitTest(ray.origin, ray.dir);
+    if (!hit) return;
+    if (hit.menu) {
+      if (hit.index >= 0) setCmd(hit.index);
+      return;
+    }
+    if (hit.spot) runCommand(hit.spot);
+  }
+
+  function startOpening() {
+    if (state.openingDone) return;
+    state.openingDone = true;
+    say(OPENING);
+  }
+
+  // =====================================================================
+  // Per-frame
+  // =====================================================================
+  let hovered = null;
+  function setHover(mesh, spot) {
+    // Highlight small props; big walls (region hotspots) and DORIS's
+    // animated eye only get the label and the bigger cursor.
+    const glows = (m) => m && m.userData.spot !== 'doris' && !m.userData.region;
+    if (hovered && hovered !== mesh && glows(hovered)) hovered.material.uniforms.uTint.value = 1;
+    hovered = mesh;
+    if (glows(mesh)) mesh.material.uniforms.uTint.value = 1.3;
+    const text = spot ? HOTSPOTS[spot].name : '';
+    if (text !== labelText) {
+      labelText = text;
+      labelTex.userData.redraw();
+    }
+  }
+
+  const headTmp = new THREE.Vector3();
+  function update(dt) {
+    const xr = renderer.xr.isPresenting;
+
+    // Opening scene timer (headset)
+    if (state.openingTimer > 0) {
+      state.openingTimer -= dt;
+      if (state.openingTimer <= 0) startOpening();
+    }
+
+    // Typewriter
+    if (dlg.open) {
+      if (dlg.shown < dlg.flat.length) {
+        dlg.acc += dt * CPS;
+        while (dlg.acc >= 1 && dlg.shown < dlg.flat.length) {
+          dlg.acc -= 1;
+          dlg.shown++;
+          if (dlg.shown % 2 && /[A-Za-z0-9]/.test(dlg.flat[dlg.shown - 1])) blip(dlg.speaker);
+          dlg.dirty = true;
+        }
+      }
+      dlg.blinkT += dt;
+      if (dlg.blinkT > 0.4) {
+        dlg.blinkT = 0;
+        dlg.blink = !dlg.blink;
+        if (dlg.shown >= dlg.flat.length) dlg.dirty = true;
+      }
+      dlg.redrawT += dt;
+      if (dlg.dirty && dlg.redrawT >= 0.05) {
+        dlg.redrawT = 0;
+        dlg.dirty = false;
+        dlgTex.userData.redraw();
+      }
+    }
+
+    // Left thumbstick moves through the command menu
+    const left = xr && leftCtrl();
+    if (left && left.gamepad) {
+      const y = left.gamepad.axes[3] || 0;
+      if (!left.latch && Math.abs(y) > 0.6) {
+        left.latch = true;
+        setCmd((state.cmd + (y > 0 ? 1 : COMMANDS.length - 1)) % COMMANDS.length);
+      } else if (Math.abs(y) < 0.3) left.latch = false;
+    }
+
+    // Pointer, cursor, hover
+    const pc = xr ? pointerCtrl() : null;
+    for (const c of ctrls) c.laser.visible = xr && c === pc;
+    const ray = xr ? (pc ? ctrlRay(pc) : null) : mouseRay();
+    if (!ray) {
+      cursor.visible = false;
+      label.visible = false;
+      setHover(null, null);
+      return;
+    }
+    const hit = hitTest(ray.origin, ray.dir);
+    const dist = hit ? hit.dist : 3;
+    const point = hit ? hit.point : ray.origin.clone().addScaledVector(ray.dir, dist);
+    if (pc) pc.laser.scale.z = dist;
+
+    const { pos } = getHead();
+    headTmp.copy(pos);
+    cursor.visible = true;
+    cursor.position.copy(point);
+    const s = 0.028 * Math.max(0.35, dist) * (hit && (hit.spot || hit.menu) ? 1.25 : 1);
+    cursor.scale.set(s, s, 1);
+    cursor.lookAt(headTmp);
+    cursor.material.uniforms.uTint.value = hit && (hit.spot || hit.menu) ? 1.25 : 0.7;
+
+    const spot = !dlg.open && hit && hit.spot ? hit.spot : null;
+    setHover(spot ? hit.mesh : null, spot);
+    label.visible = !!spot;
+    if (spot) {
+      const ls = 0.16 * Math.max(0.35, dist) / 1.0;
+      label.scale.set(ls, ls, 1);
+      label.position.copy(point);
+      label.position.y += 0.05 * Math.max(0.35, dist);
+      label.lookAt(headTmp);
+    }
+  }
+
+  return {
+    update,
+    say,
+    onSessionStart() {
+      attachMenu();
+      if (!state.openingDone) state.openingTimer = 1.5;
+    },
+    onSessionEnd() {
+      attachMenu();
+      for (const c of ctrls) c.laser.visible = false;
+    },
+  };
+}

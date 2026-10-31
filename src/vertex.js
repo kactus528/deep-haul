@@ -119,10 +119,13 @@ void main() {
   gl_FragColor = vec4(col, 1.0);
 }`;
 
-export function cardMaterial(map, { tint = 1 } = {}) {
+export function cardMaterial(map, { tint = 1, noSnap = false } = {}) {
   return new THREE.ShaderMaterial({
     uniforms: {
       ...shared,
+      // Interface cards (cursor, menu, dialogue) never snap: a 1 cm grid
+      // would crush a 3 cm cursor.
+      ...(noSnap ? { uSnap: { value: 0 } } : {}),
       map: { value: map },
       uTint: { value: tint },
       uUvOffset: { value: new THREE.Vector2() },

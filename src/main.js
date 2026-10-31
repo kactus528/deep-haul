@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { VertexPipeline, settings, RES, FOG } from './vertex.js?v=9';
-import { buildCryoBay } from './room-cryo.js?v=9';
+import { VertexPipeline, settings, RES, FOG } from './vertex.js?v=10';
+import { buildCryoBay } from './room-cryo.js?v=10';
+import { createUI } from './ui.js?v=10';
 
-const BUILD = 9;
+const BUILD = 10;
 const ANIM_STEP = 1 / 20; // world animation runs at 20 fps
 const PLAY_SPOT = new THREE.Vector2(0, 0); // x, z of the player's fixed spot
 const LEAN_LIMIT = 0.3; // meters before the view fades out
@@ -49,6 +50,7 @@ scene.add(world);
 const room = buildCryoBay(world);
 scene.background = FOG;
 const camera = new THREE.PerspectiveCamera(60, RES.w / RES.h, 0.05, 50);
+scene.add(camera); // the desktop command menu rides on the camera
 const pipeline = new VertexPipeline(renderer);
 const errScene = new THREE.Scene();
 errScene.background = new THREE.Color(0.6, 0, 0);
@@ -135,7 +137,24 @@ function updateFade() {
   pipeline.setFade((d - LEAN_LIMIT) / 0.15);
 }
 
+// Where the player's head is and which way they face (for placing dialogue).
+const headOut = { pos: new THREE.Vector3(), yaw: 0 };
+function getHead() {
+  if (renderer.xr.isPresenting && readHead()) {
+    headEuler.setFromQuaternion(headQuat, 'YXZ');
+    headOut.pos.copy(headPos);
+    headOut.yaw = headEuler.y;
+  } else {
+    headOut.pos.copy(camera.position);
+    headOut.yaw = flat.yaw;
+  }
+  return headOut;
+}
+
+const ui = createUI({ renderer, scene, camera, hitMeshes: room.hitMeshes, getHead });
+
 renderer.xr.addEventListener('sessionstart', () => {
+  ui.onSessionStart();
   if (help && !broken) help.style.display = 'none';
   needAnchor = true;
   anchorFrames = 0;
@@ -147,6 +166,7 @@ renderer.xr.addEventListener('sessionend', () => {
   world.rotation.set(0, 0, 0);
   PLAY_SPOT.set(0, 0);
   pipeline.setFade(0);
+  ui.onSessionEnd();
   settings.comfort = false; // flat screen stays fully authentic
   pipeline.apply();
   room.refreshHud();
@@ -220,8 +240,10 @@ function frame() {
     pipeline.renderXR(scene, camera);
     if (needAnchor && ++anchorFrames > 3 && anchorRoom()) needAnchor = false;
     updateFade();
+    ui.update(dt);
   } else {
     updateFlat(dt);
+    ui.update(dt);
     pipeline.renderFlat(scene, camera);
   }
 }

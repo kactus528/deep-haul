@@ -5,14 +5,15 @@
 // Swap in hand-drawn art later; positions and sizes can stay.
 
 import * as THREE from 'three';
-import { cardMaterial, settings, FOG, MAX_QUADS } from './vertex.js?v=9';
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=9';
+import { cardMaterial, settings, FOG, MAX_QUADS } from './vertex.js?v=10';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=10';
 
 export function buildCryoBay(scene) {
   scene.background = FOG;
   let quads = 0;
+  const hitMeshes = []; // cards the pointer can hit (hotspots and solid walls)
 
-  const card = (tex, w, h, pos, { rot, face, order = 0, segs = 1, counted = true, tint = 1 } = {}) => {
+  const card = (tex, w, h, pos, { rot, face, order = 0, segs = 1, counted = true, tint = 1, spot = null, region = null, noHit = false } = {}) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h, segs, segs), cardMaterial(tex, { tint }));
     m.position.set(...pos);
     if (rot) m.rotation.set(...rot);
@@ -22,6 +23,9 @@ export function buildCryoBay(scene) {
       m.userData.card = true;
       quads += segs * segs;
     }
+    if (spot) m.userData.spot = spot;
+    if (region) m.userData.region = region;
+    if (counted && !noHit) hitMeshes.push(m);
     scene.add(m);
     return m;
   };
@@ -517,34 +521,34 @@ export function buildCryoBay(scene) {
   const H = Math.PI / 2;
   card(floor, 6, 6.2, [0, 0, -1.9], { rot: [-H, 0, 0], order: -1, segs: 2 });
   card(ceiling, 6, 6.2, [0, 3.2, -1.9], { rot: [H, 0, 0], order: -1, segs: 2 });
-  card(wall, 6, 3.2, [0, 1.6, -5], { order: -1, segs: 2 });
-  card(wall, 6, 3.2, [0, 1.6, 1.2], { rot: [0, Math.PI, 0], order: -1, segs: 2 });
-  card(side, 6.2, 3.2, [-3, 1.6, -1.9], { rot: [0, H, 0], order: -1, segs: 2 });
-  card(side, 6.2, 3.2, [3, 1.6, -1.9], { rot: [0, -H, 0], order: -1, segs: 2 });
+  card(wall, 6, 3.2, [0, 1.6, -5], { order: -1, segs: 2, spot: 'hatch', region: [0.28, 0, 0.72, 0.79] });
+  card(wall, 6, 3.2, [0, 1.6, 1.2], { rot: [0, Math.PI, 0], order: -1, segs: 2, spot: 'reardoor', region: [0.28, 0, 0.72, 0.79] });
+  card(side, 6.2, 3.2, [-3, 1.6, -1.9], { rot: [0, H, 0], order: -1, segs: 2, spot: 'alcoves', region: [0, 0.1, 1, 0.82] });
+  card(side, 6.2, 3.2, [3, 1.6, -1.9], { rot: [0, -H, 0], order: -1, segs: 2, spot: 'alcoves', region: [0, 0.1, 1, 0.82] });
 
-  card(papers, 0.6, 0.6, [0.45, 0.01, -0.95], { rot: [-H, 0, 0.3], order: -0.5 });
-  card(beam, 1.3, 3.0, [-1.5, 1.6, -2.05], { face: [0, 1.6, 0] });
-  card(beam, 1.3, 3.0, [1.5, 1.6, -2.05], { face: [0, 1.6, 0] });
+  card(papers, 0.6, 0.6, [0.45, 0.01, -0.95], { rot: [-H, 0, 0.3], order: -0.5, spot: 'papers' });
+  card(beam, 1.3, 3.0, [-1.5, 1.6, -2.05], { face: [0, 1.6, 0], noHit: true });
+  card(beam, 1.3, 3.0, [1.5, 1.6, -2.05], { face: [0, 1.6, 0], noHit: true });
 
   for (const [x, z] of [[-1.7, -1.4], [-1.7, -3.2], [1.7, -1.4], [1.7, -3.2]]) {
-    card(podClosed, 0.9, 1.8, [x, 0.9, z], { face: [0, 0.9, 0] });
+    card(podClosed, 0.9, 1.8, [x, 0.9, z], { face: [0, 0.9, 0], spot: 'pod' });
   }
-  card(podOpen, 0.9, 1.8, [0, 0.9, 0.8], { face: [0, 0.9, 0] }); // Gus's pod, behind you
-  card(mop, 0.42, 1.0, [0.65, 0.5, 0.7], { face: [0, 0.5, 0] });
+  card(podOpen, 0.9, 1.8, [0, 0.9, 0.8], { face: [0, 0.9, 0], spot: 'mypod' }); // Gus's pod, behind you
+  card(mop, 0.42, 1.0, [0.65, 0.5, 0.7], { face: [0, 0.5, 0], spot: 'mop' });
 
-  card(desk, 0.6, 0.9, [-0.8, 0.45, -1.1], { face: [0, 0.45, 0] });
-  card(crt, 0.5, 0.375, [-0.8, 1.09, -1.08], { face: [0, 1.09, 0] });
-  card(mug, 0.1, 0.1, [-0.58, 0.95, -1.0], { face: [0, 0.95, 0] });
-  card(suit, 0.75, 1.5, [2.45, 1.0, -2.3], { face: [0, 1.0, 0] });
-  card(cables, 0.35, 1.75, [-2.75, 2.3, -0.55], { face: [0, 2.3, 0] });
-  card(pipe, 4.5, 0.28, [0, 2.75, -1.3]);
-  const mistCard = card(mist, 6, 0.6, [0, 0.3, -3.6]);
-  const steamCard = card(steam, 0.4, 0.8, [-2.4, 0.45, -4.5], { face: [0, 0.45, 0] });
-  const eye = card(eyeTex, 0.4, 0.4, [0, 2.7, -3.4], { face: [0, 1.6, 0] });
-  const beaconCard = card(beacon, 0.22, 0.22, [0.85, 2.62, -4.85]);
-  card(sign, 1.2, 0.3, [0, 2.78, -4.9]);
-  card(crate, 0.9, 0.9, [-2.2, 0.45, -4.2], { face: [0, 0.45, 0] });
-  card(crate, 0.9, 0.9, [2.3, 0.45, -4.4], { face: [0, 0.45, 0] });
+  card(desk, 0.6, 0.9, [-0.8, 0.45, -1.1], { face: [0, 0.45, 0], spot: 'terminal' });
+  card(crt, 0.5, 0.375, [-0.8, 1.09, -1.08], { face: [0, 1.09, 0], spot: 'terminal' });
+  card(mug, 0.1, 0.1, [-0.58, 0.95, -1.0], { face: [0, 0.95, 0], spot: 'mug' });
+  card(suit, 0.75, 1.5, [2.45, 1.0, -2.3], { face: [0, 1.0, 0], spot: 'suit' });
+  card(cables, 0.35, 1.75, [-2.75, 2.3, -0.55], { face: [0, 2.3, 0], spot: 'cables' });
+  card(pipe, 4.5, 0.28, [0, 2.75, -1.3], { noHit: true });
+  const mistCard = card(mist, 6, 0.6, [0, 0.3, -3.6], { noHit: true });
+  const steamCard = card(steam, 0.4, 0.8, [-2.4, 0.45, -4.5], { face: [0, 0.45, 0], noHit: true });
+  const eye = card(eyeTex, 0.4, 0.4, [0, 2.7, -3.4], { face: [0, 1.6, 0], spot: 'doris' });
+  const beaconCard = card(beacon, 0.22, 0.22, [0.85, 2.62, -4.85], { noHit: true });
+  card(sign, 1.2, 0.3, [0, 2.78, -4.9], { spot: 'sign' });
+  card(crate, 0.9, 0.9, [-2.2, 0.45, -4.2], { face: [0, 0.45, 0], spot: 'crate' });
+  card(crate, 0.9, 0.9, [2.3, 0.45, -4.4], { face: [0, 0.45, 0], spot: 'crate' });
 
   // =====================================================================
   // Debug HUD (not counted against the budget)
@@ -552,7 +556,7 @@ export function buildCryoBay(scene) {
   const hud = pixelTexture(128, 48, (p, w, h) => {
     p.rect(0, 0, w, h, R.black[1]);
     p.rect(0, 0, w, 1, R.steel[4]);
-    p.text(`B9  ${settings.comfort ? 'COMFORT' : 'AUTHENTIC'}`, 3, 2, settings.comfort ? R.cryo[6] : R.hazard[6], 8);
+    p.text(`B10 ${settings.comfort ? 'COMFORT' : 'AUTHENTIC'}`, 3, 2, settings.comfort ? R.cryo[6] : R.hazard[6], 8);
     p.text(`QUADS ${quads}/${MAX_QUADS}`, 3, 13, quads > MAX_QUADS ? R.red[6] : R.phosphor[6], 8);
     const items = [['LO', settings.lowres], ['PAL', settings.palette], ['SNP', settings.snap], ['AFF', settings.affine], ['20F', settings.steppedAnim]];
     let x = 3;
@@ -570,6 +574,7 @@ export function buildCryoBay(scene) {
   let t = 0;
   return {
     quads,
+    hitMeshes,
     refreshHud: () => hud.userData.redraw(),
     update(dt) {
       t += dt;
