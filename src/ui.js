@@ -7,10 +7,11 @@
 // or point + trigger). Desktop: click things; L/T/C/U pick a command; Space advances.
 
 import * as THREE from 'three';
-import { cardMaterial } from './vertex.js?v=13';
-import { pixelTexture, RAMPS as R } from './pixelart.js?v=13';
-import { HOTSPOTS, OPENING, DORIS_TALK, DEFAULTS } from './script.js?v=13';
-import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=13';
+import { cardMaterial } from './vertex.js?v=14';
+import { pixelTexture, RAMPS as R } from './pixelart.js?v=14';
+import { HOTSPOTS, OPENING, DORIS_TALK, DEFAULTS } from './script.js?v=14';
+import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=14';
+import { createTalkers, mouthFor, TALKER_ASPECT } from './talkers.js?v=14';
 
 // The command pad: one command per thumbstick direction.
 // USE also walks through doors (the old MOVE command).
@@ -98,23 +99,21 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
     for (let yy = y + 7; yy < y + 39; yy += 2) p.rect(x + 5, yy, 38, 1, 'rgba(0,0,0,0.2)');
   };
   const STYLE = {
-    DORIS: { tag: 'DORIS', ramp: R.red, ink: R.beige[7], portrait: drawPortrait },
-    VENDO: { tag: 'VENDO-9', ramp: R.suit, ink: R.hazard[7], portrait: drawVendo },
-    CASE: { tag: 'CASE FILE', ramp: R.hazard, ink: R.hazard[6], portrait: null },
-    GUS: { tag: 'GUS', ramp: R.cryo, ink: R.cryo[6], portrait: null },
+    DORIS: { tag: 'DORIS', ramp: R.red, ink: R.beige[7] },
+    VENDO: { tag: 'VENDO-9', ramp: R.suit, ink: R.hazard[7] },
+    CASE: { tag: 'CASE FILE', ramp: R.hazard, ink: R.hazard[6] },
+    GUS: { tag: 'GUS', ramp: R.cryo, ink: R.cryo[6] },
   };
 
+  // KQ6-style text box: brass frame, dark glass, name tab.
   const dlgTex = pixelTexture(256, 72, (p, w, h) => {
-    p.bevel(0, 0, w, h, R.beige, 4);
-    p.rect(1, 1, w - 2, 1, R.beige[7]);
-    p.inset(4, 4, w - 8, h - 8, R.black, 1);
-    p.vgrad(6, 6, w - 12, h - 12, R.dark, 1.6, 0.3);
-    let tx = 12;
+    p.bevel(0, 0, w, h, R.hazard, 4);
+    p.rect(2, 2, w - 4, 1, R.hazard[7]);
+    p.inset(4, 4, w - 8, h - 8, R.hazard, 2);
+    for (const [x, y] of [[2, 2], [w - 5, 2], [2, h - 5], [w - 5, h - 5]]) p.disc(x + 1, y + 1, 2, R.hazard[6]);
+    p.vgrad(6, 6, w - 12, h - 12, R.dark, 1.8, 0.4);
     const st = STYLE[dlg.speaker] || STYLE.GUS;
-    if (st.portrait) {
-      st.portrait(p, 8, 10);
-      tx = 64;
-    }
+    const tx = 12;
     p.bevel(tx - 2, 8, st.tag.length * 5 + 8, 10, st.ramp, 4);
     p.text(st.tag, tx + 2, 9, R.black[0], 7);
     let left = dlg.shown;
@@ -126,11 +125,28 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
     if (dlg.shown >= dlg.flat.length && dlg.blink) {
       for (let k = 0; k < 4; k++) p.rect(w - 18 + k, h - 15 + k, 7 - k * 2, 1, R.hazard[6]);
     }
-    for (let y = 6; y < h - 6; y += 2) p.rect(6, y, w - 12, 1, 'rgba(0,0,0,0.18)');
+    for (let y = 6; y < h - 6; y += 2) p.rect(6, y, w - 12, 1, 'rgba(0,0,0,0.15)');
   });
   const dlgCard = uiCard(dlgTex, 0.72, 0.2025, 30);
   dlgCard.visible = false;
   scene.add(dlgCard);
+
+  // The talking portrait, in its own frame beside the text box.
+  const talkers = createTalkers();
+  const PORTRAIT_W = 0.27;
+  const portraitCard = uiCard(talkers.GUS.frames[0][0], PORTRAIT_W, PORTRAIT_W * TALKER_ASPECT, 30);
+  portraitCard.visible = false;
+  scene.add(portraitCard);
+  const face = { eye: 0, mouth: 0, mouthT: 0, blinkT: 2.5, blinkStep: -1, shown: null };
+  function showFace() {
+    const t = talkers[dlg.speaker];
+    if (!t) return;
+    const tex = t.frames[face.eye][face.mouth];
+    if (face.shown !== tex) {
+      face.shown = tex;
+      portraitCard.material.uniforms.map.value = tex;
+    }
+  }
 
   const PREFIX = { 'D:': 'DORIS', 'V:': 'VENDO', 'C:': 'CASE', 'G:': 'GUS' };
   function pagesFor(rawLines) {
@@ -143,7 +159,7 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
       }
       const speaker = PREFIX[raw.slice(0, 2)] || 'GUS';
       const text = PREFIX[raw.slice(0, 2)] ? raw.slice(2) : raw;
-      const lines = wrap(text, STYLE[speaker].portrait ? 34 : 44);
+      const lines = wrap(text, 44);
       for (let i = 0; i < lines.length; i += ROWS) pages.push({ speaker, lines: lines.slice(i, i + ROWS) });
     }
     return pages;
@@ -168,6 +184,7 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
   function closeDialogue() {
     dlg.open = false;
     dlgCard.visible = false;
+    portraitCard.visible = false;
     if (state.pendingEnd) {
       state.pendingEnd = false;
       showEndCard();
@@ -177,11 +194,17 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
   function placeDialogue() {
     const { pos, yaw } = getHead();
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
-    dlgCard.position.set(pos.x + fx * 0.85, pos.y - 0.3, pos.z + fz * 0.85);
+    const rx = Math.cos(yaw), rz = -Math.sin(yaw);
+    // Text box a little right of center, portrait to its left.
+    dlgCard.position.set(pos.x + fx * 0.85 + rx * 0.15, pos.y - 0.3, pos.z + fz * 0.85 + rz * 0.15);
     dlgCard.lookAt(pos.x, pos.y - 0.05, pos.z);
+    portraitCard.position.set(pos.x + fx * 0.83 - rx * 0.39, pos.y - 0.25, pos.z + fz * 0.83 - rz * 0.39);
+    portraitCard.lookAt(pos.x, pos.y - 0.05, pos.z);
   }
 
   function showPage(page) {
+    portraitCard.visible = !!talkers[page.speaker];
+    if (page.speaker !== dlg.speaker) face.shown = null;
     dlg.speaker = page.speaker;
     dlg.lines = page.lines;
     dlg.flat = page.lines.join('');
@@ -510,6 +533,29 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
           dlg.dirty = true;
         }
       }
+      // Talker: lip-flap ~12 times a second while text types, blink on its own.
+      face.mouthT += dt;
+      if (face.mouthT >= 1 / 12) {
+        face.mouthT = 0;
+        const typing = dlg.shown < dlg.flat.length;
+        face.mouth = typing ? mouthFor(dlg.flat[dlg.shown]) : 0;
+        if (typing && face.mouth === 0 && Math.random() < 0.35) face.mouth = 1;
+      }
+      face.blinkT -= dt;
+      if (face.blinkStep < 0 && face.blinkT <= 0) {
+        face.blinkStep = 0;
+        face.blinkT = 0.05;
+      } else if (face.blinkStep >= 0 && face.blinkT <= 0) {
+        face.blinkStep++;
+        face.blinkT = 0.05;
+        if (face.blinkStep > 3) {
+          face.blinkStep = -1;
+          face.blinkT = 2 + Math.random() * 3.5;
+        }
+      }
+      face.eye = face.blinkStep < 0 ? 0 : [1, 2, 2, 1][face.blinkStep];
+      showFace();
+
       dlg.blinkT += dt;
       if (dlg.blinkT > 0.4) {
         dlg.blinkT = 0;
