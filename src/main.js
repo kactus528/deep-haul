@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=15';
-import { buildCryoBay } from './room-cryo.js?v=15';
-import { buildCorridor } from './room-corridor.js?v=15';
-import { buildMess } from './room-mess.js?v=15';
-import { createHud } from './hud.js?v=15';
-import { createUI } from './ui.js?v=15';
+import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=16';
+import { buildCryoBay } from './room-cryo.js?v=16';
+import { buildCorridor } from './room-corridor.js?v=16';
+import { buildMess } from './room-mess.js?v=16';
+import { createHud } from './hud.js?v=16';
+import { createUI } from './ui.js?v=16';
 
-const BUILD = 15;
+const BUILD = 16;
 const ANIM_STEP = 1 / 20; // world animation runs at 20 fps
 const PLAY_SPOT = new THREE.Vector2(0, 0); // x, z of the player's fixed spot
 const LEAN_LIMIT = 0.3; // meters before the view fades out
@@ -30,7 +30,13 @@ function showError(err) {
   }
 }
 addEventListener('error', (e) => showError(e.error || e.message));
-addEventListener('unhandledrejection', (e) => showError(e.reason));
+// A rejected promise is usually the browser saying no to something minor
+// (e.g. the Enter VR button pressed again while already in VR). Log it, but
+// don't stop the game for it.
+addEventListener('unhandledrejection', (e) => {
+  console.warn('[Deep Haul] ignored rejected promise:', e.reason);
+  e.preventDefault();
+});
 
 const renderer = new THREE.WebGLRenderer({ antialias: false });
 renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
@@ -43,7 +49,12 @@ renderer.debug.onShaderError = (gl, program, vs, fs) => {
   showError('Shader failed to compile:\n' + log);
 };
 document.body.appendChild(renderer.domElement);
-document.body.appendChild(VRButton.createButton(renderer));
+const vrButton = VRButton.createButton(renderer);
+document.body.appendChild(vrButton);
+// While in VR, a trigger pull can leak through to this page; make sure it
+// can't press the button behind the headset view.
+renderer.xr.addEventListener('sessionstart', () => (vrButton.style.pointerEvents = 'none'));
+renderer.xr.addEventListener('sessionend', () => (vrButton.style.pointerEvents = ''));
 
 const scene = new THREE.Scene();
 // The room lives in its own group so it can be moved to wherever the player
