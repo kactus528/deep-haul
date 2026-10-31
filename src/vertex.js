@@ -119,6 +119,12 @@ void main() {
   gl_FragColor = vec4(col, 1.0);
 }`;
 
+// Each room sets its own fog distances (long corridors need more).
+export function setFog(near, far) {
+  shared.fogNear.value = near;
+  shared.fogFar.value = far;
+}
+
 export function cardMaterial(map, { tint = 1, noSnap = false } = {}) {
   return new THREE.ShaderMaterial({
     uniforms: {
@@ -166,7 +172,6 @@ export class VertexPipeline {
   }
 
   renderFlat(scene, camera) {
-    shared.uFade.value = 0;
     this.r.getDrawingBufferSize(this.size);
     this.setCell(this.size.x, this.size.y);
     this.r.render(scene, camera);

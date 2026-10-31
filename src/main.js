@@ -1,10 +1,13 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { VertexPipeline, settings, RES, FOG } from './vertex.js?v=10';
-import { buildCryoBay } from './room-cryo.js?v=10';
-import { createUI } from './ui.js?v=10';
+import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=11';
+import { buildCryoBay } from './room-cryo.js?v=11';
+import { buildCorridor } from './room-corridor.js?v=11';
+import { buildMess } from './room-mess.js?v=11';
+import { createHud } from './hud.js?v=11';
+import { createUI } from './ui.js?v=11';
 
-const BUILD = 10;
+const BUILD = 11;
 const ANIM_STEP = 1 / 20; // world animation runs at 20 fps
 const PLAY_SPOT = new THREE.Vector2(0, 0); // x, z of the player's fixed spot
 const LEAN_LIMIT = 0.3; // meters before the view fades out
@@ -47,8 +50,57 @@ const scene = new THREE.Scene();
 // is standing (and facing) when they enter VR.
 const world = new THREE.Group();
 scene.add(world);
-const room = buildCryoBay(world);
 scene.background = FOG;
+
+// ---------- rooms ----------
+// Each room is built around the player's spot, facing -z, in its own group.
+// Travel is always a fade cut (the camera never moves on its own).
+const rooms = {};
+function addRoom(id, build) {
+  const group = new THREE.Group();
+  group.visible = false;
+  world.add(group);
+  rooms[id] = Object.assign(build(group), { group });
+}
+addRoom('cryo', buildCryoBay);
+addRoom('corridor', buildCorridor);
+addRoom('mess', buildMess);
+let room = rooms.cryo;
+room.group.visible = true;
+setFog(...room.fog);
+const hud = createHud(world, BUILD);
+hud.setRoom(room.name, room.quads);
+
+const trans = { state: 'idle', t: 0, target: null, yaw: 0 };
+function goTo(id, yawDeg = 0) {
+  if (!rooms[id] || trans.state !== 'idle') return;
+  Object.assign(trans, { state: 'out', t: 0, target: id, yaw: Number(yawDeg) || 0 });
+  ui.setLocked(true);
+}
+// Returns how faded the view should be for the transition (0..1).
+function updateTransition(dt) {
+  if (trans.state === 'idle') return 0;
+  trans.t += dt / 0.35;
+  if (trans.state === 'out' && trans.t >= 1) {
+    room.group.visible = false;
+    room = rooms[trans.target];
+    room.group.visible = true;
+    room.group.rotation.y = THREE.MathUtils.degToRad(trans.yaw);
+    setFog(...room.fog);
+    ui.setHitMeshes(room.hitMeshes);
+    hud.setRoom(room.name, room.quads);
+    trans.state = 'in';
+    trans.t = 0;
+    return 1;
+  }
+  if (trans.state === 'in' && trans.t >= 1) {
+    trans.state = 'idle';
+    ui.setLocked(false);
+    return 0;
+  }
+  return trans.state === 'out' ? trans.t : 1 - trans.t;
+}
+let transFade = 0;
 const camera = new THREE.PerspectiveCamera(60, RES.w / RES.h, 0.05, 50);
 scene.add(camera); // the desktop command menu rides on the camera
 const pipeline = new VertexPipeline(renderer);
@@ -59,7 +111,7 @@ errScene.background = new THREE.Color(0.6, 0, 0);
 function toggle(...keys) {
   for (const k of keys) settings[k] = !settings[k];
   pipeline.apply();
-  room.refreshHud();
+  hud.refresh();
 }
 // Headset remembers your choice for this visit; Comfort until you switch.
 let xrComfort = true;
@@ -67,7 +119,7 @@ function setMode(comfort) {
   settings.comfort = comfort;
   if (renderer.xr.isPresenting) xrComfort = comfort;
   pipeline.apply();
-  room.refreshHud();
+  hud.refresh();
 }
 const keyToggles = { 1: 'lowres', 2: 'palette', 3: 'snap', 4: 'affine', 5: 'steppedAnim', 6: 'scanlines' };
 
@@ -132,9 +184,9 @@ function anchorRoom() {
   return true;
 }
 function updateFade() {
-  if (needAnchor || !readHead()) return pipeline.setFade(0);
+  if (needAnchor || !readHead()) return pipeline.setFade(transFade);
   const d = Math.hypot(headPos.x - PLAY_SPOT.x, headPos.z - PLAY_SPOT.y);
-  pipeline.setFade((d - LEAN_LIMIT) / 0.15);
+  pipeline.setFade(Math.max(transFade, (d - LEAN_LIMIT) / 0.15));
 }
 
 // Where the player's head is and which way they face (for placing dialogue).
@@ -151,7 +203,17 @@ function getHead() {
   return headOut;
 }
 
-const ui = createUI({ renderer, scene, camera, hitMeshes: room.hitMeshes, getHead });
+const ui = createUI({
+  renderer,
+  scene,
+  camera,
+  hitMeshes: room.hitMeshes,
+  getHead,
+  onAction(name, ...args) {
+    if (name === 'goto') goTo(args[0], args[1]);
+    else if (room.onAction) room.onAction(name, ...args);
+  },
+});
 
 renderer.xr.addEventListener('sessionstart', () => {
   ui.onSessionStart();
@@ -169,7 +231,7 @@ renderer.xr.addEventListener('sessionend', () => {
   ui.onSessionEnd();
   settings.comfort = false; // flat screen stays fully authentic
   pipeline.apply();
-  room.refreshHud();
+  hud.refresh();
   if (help) help.style.display = '';
   camera.aspect = RES.w / RES.h;
   camera.updateProjectionMatrix();
@@ -224,6 +286,7 @@ function frame() {
   const now = performance.now();
   const dt = Math.min((now - last) / 1000, 0.25);
   last = now;
+  transFade = updateTransition(dt);
 
   if (settings.steppedAnim) {
     acc += dt;
@@ -244,6 +307,7 @@ function frame() {
   } else {
     updateFlat(dt);
     ui.update(dt);
+    pipeline.setFade(transFade);
     pipeline.renderFlat(scene, camera);
   }
 }

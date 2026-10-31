@@ -7,12 +7,13 @@
 // pick). Desktop: click things; L/T/C/U pick a command; Space advances.
 
 import * as THREE from 'three';
-import { cardMaterial } from './vertex.js?v=10';
-import { pixelTexture, RAMPS as R } from './pixelart.js?v=10';
-import { HOTSPOTS, OPENING, DORIS_TALK, DEFAULTS } from './script.js?v=10';
-import { initAudio, blip, click, confirm } from './voice.js?v=10';
+import { cardMaterial } from './vertex.js?v=11';
+import { pixelTexture, RAMPS as R } from './pixelart.js?v=11';
+import { HOTSPOTS, OPENING, DORIS_TALK, DEFAULTS } from './script.js?v=11';
+import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=11';
 
-const COMMANDS = ['LOOK', 'TALK', 'CHECK', 'USE'];
+const COMMANDS = ['LOOK', 'TALK', 'CHECK', 'USE', 'MOVE'];
+const MENU_H = 92;
 const CPS = 40; // typed characters per second
 const ROWS = 4;
 
@@ -46,8 +47,9 @@ function opaqueAt(mesh, uv) {
   return img.getContext('2d').getImageData(x, y, 1, 1).data[3] > 127;
 }
 
-export function createUI({ renderer, scene, camera, hitMeshes, getHead }) {
-  const state = { cmd: 0, counts: {}, dorisTalk: 0, openingDone: false, openingTimer: -1 };
+export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getHead, onAction = () => {} }) {
+  let hitMeshes = initialHits;
+  const state = { cmd: 0, counts: {}, dorisTalk: 0, openingDone: false, openingTimer: -1, flags: {}, locked: false, pendingEnd: false };
 
   // =====================================================================
   // Dialogue window
@@ -73,25 +75,45 @@ export function createUI({ renderer, scene, camera, hitMeshes, getHead }) {
     for (let yy = y + 4; yy < y + 46; yy += 2) p.rect(x + 3, yy, 42, 1, 'rgba(0,0,0,0.22)');
   };
 
+  const drawVendo = (p, x, y) => {
+    p.bevel(x, y, 48, 48, R.suit, 4);
+    p.inset(x + 4, y + 6, 40, 34, R.black, 1);
+    p.vgrad(x + 5, y + 7, 38, 32, R.cryo, 4.6, 3);
+    p.rect(x + 13, y + 14, 5, 7, R.dark[0]);
+    p.rect(x + 30, y + 14, 5, 7, R.dark[0]);
+    p.rect(x + 14, y + 15, 1, 1, R.cryo[7]);
+    p.rect(x + 31, y + 15, 1, 1, R.cryo[7]);
+    p.rect(x + 12, y + 28, 24, 2, R.dark[0]);
+    p.rect(x + 10, y + 26, 2, 2, R.dark[0]);
+    p.rect(x + 36, y + 26, 2, 2, R.dark[0]);
+    p.text('V-9', x + 15, y + 40, R.beige[7], 6);
+    for (let yy = y + 7; yy < y + 39; yy += 2) p.rect(x + 5, yy, 38, 1, 'rgba(0,0,0,0.2)');
+  };
+  const STYLE = {
+    DORIS: { tag: 'DORIS', ramp: R.red, ink: R.beige[7], portrait: drawPortrait },
+    VENDO: { tag: 'VENDO-9', ramp: R.suit, ink: R.hazard[7], portrait: drawVendo },
+    CASE: { tag: 'CASE FILE', ramp: R.hazard, ink: R.hazard[6], portrait: null },
+    GUS: { tag: 'GUS', ramp: R.cryo, ink: R.cryo[6], portrait: null },
+  };
+
   const dlgTex = pixelTexture(256, 72, (p, w, h) => {
     p.bevel(0, 0, w, h, R.beige, 4);
     p.rect(1, 1, w - 2, 1, R.beige[7]);
     p.inset(4, 4, w - 8, h - 8, R.black, 1);
     p.vgrad(6, 6, w - 12, h - 12, R.dark, 1.6, 0.3);
     let tx = 12;
-    const doris = dlg.speaker === 'DORIS';
-    if (doris) {
-      drawPortrait(p, 8, 10);
+    const st = STYLE[dlg.speaker] || STYLE.GUS;
+    if (st.portrait) {
+      st.portrait(p, 8, 10);
       tx = 64;
     }
-    const tag = doris ? 'DORIS' : 'GUS';
-    p.bevel(tx - 2, 8, tag.length * 5 + 8, 10, doris ? R.red : R.cryo, 4);
-    p.text(tag, tx + 2, 9, R.black[0], 7);
+    p.bevel(tx - 2, 8, st.tag.length * 5 + 8, 10, st.ramp, 4);
+    p.text(st.tag, tx + 2, 9, R.black[0], 7);
     let left = dlg.shown;
     dlg.lines.forEach((ln, i) => {
       const s = ln.slice(0, Math.max(0, left));
       left -= ln.length;
-      if (s) p.text(s, tx, 22 + i * 11, doris ? R.beige[7] : R.cryo[6], 8);
+      if (s) p.text(s, tx, 22 + i * 11, st.ink, 8);
     });
     if (dlg.shown >= dlg.flat.length && dlg.blink) {
       for (let k = 0; k < 4; k++) p.rect(w - 18 + k, h - 15 + k, 7 - k * 2, 1, R.hazard[6]);
@@ -102,16 +124,46 @@ export function createUI({ renderer, scene, camera, hitMeshes, getHead }) {
   dlgCard.visible = false;
   scene.add(dlgCard);
 
+  const PREFIX = { 'D:': 'DORIS', 'V:': 'VENDO', 'C:': 'CASE', 'G:': 'GUS' };
   function pagesFor(rawLines) {
     const pages = [];
     for (const raw of rawLines) {
-      const doris = raw.startsWith('D:');
-      const speaker = doris ? 'DORIS' : 'GUS';
-      const text = doris ? raw.slice(2) : raw.replace(/^G:/, '');
-      const lines = wrap(text, doris ? 34 : 44);
+      if (raw.startsWith('@')) {
+        const [name, ...args] = raw.slice(1).split(':');
+        pages.push({ action: name, args });
+        continue;
+      }
+      const speaker = PREFIX[raw.slice(0, 2)] || 'GUS';
+      const text = PREFIX[raw.slice(0, 2)] ? raw.slice(2) : raw;
+      const lines = wrap(text, STYLE[speaker].portrait ? 34 : 44);
       for (let i = 0; i < lines.length; i += ROWS) pages.push({ speaker, lines: lines.slice(i, i + ROWS) });
     }
     return pages;
+  }
+
+  function runAction({ action, args }) {
+    if (action === 'set') state.flags[args[0]] = true;
+    else if (action === 'end') state.pendingEnd = true;
+    else onAction(action, ...args);
+  }
+
+  // Run any actions at the front of the queue; return the next text page.
+  function nextTextPage() {
+    while (dlg.queue.length) {
+      const page = dlg.queue.shift();
+      if (page.action) runAction(page);
+      else return page;
+    }
+    return null;
+  }
+
+  function closeDialogue() {
+    dlg.open = false;
+    dlgCard.visible = false;
+    if (state.pendingEnd) {
+      state.pendingEnd = false;
+      showEndCard();
+    }
   }
 
   function placeDialogue() {
@@ -132,11 +184,15 @@ export function createUI({ renderer, scene, camera, hitMeshes, getHead }) {
 
   function say(rawLines) {
     dlg.queue = pagesFor(rawLines);
-    if (!dlg.queue.length) return;
+    const first = nextTextPage();
+    if (!first) {
+      if (state.pendingEnd) closeDialogue();
+      return;
+    }
     placeDialogue();
     dlg.open = true;
     dlgCard.visible = true;
-    showPage(dlg.queue.shift());
+    showPage(first);
     dlgTex.userData.redraw();
   }
 
@@ -148,18 +204,43 @@ export function createUI({ renderer, scene, camera, hitMeshes, getHead }) {
       dlg.dirty = true;
       return;
     }
-    const next = dlg.queue.shift();
+    const next = nextTextPage();
     if (next) showPage(next);
-    else {
-      dlg.open = false;
-      dlgCard.visible = false;
-    }
+    else closeDialogue();
+  }
+
+  // =====================================================================
+  // Chapter end card
+  // =====================================================================
+  const endTex = pixelTexture(256, 144, (p, w, h) => {
+    p.bevel(0, 0, w, h, R.hazard, 4);
+    p.inset(5, 5, w - 10, h - 10, R.black, 1);
+    p.vgrad(7, 7, w - 14, h - 14, R.dark, 2.2, 0.3);
+    p.text('END OF CHAPTER 1', 40, 18, R.hazard[6], 14);
+    p.text('T H A W', 92, 42, R.cryo[6], 12);
+    p.rect(30, 64, w - 60, 1, R.hazard[3]);
+    p.text('PASSWORD', 98, 74, R.beige[5], 8);
+    p.text('PELL-0312-HAUL', 66, 86, R.beige[7], 10);
+    p.text('THE INVESTIGATION CONTINUES...', 46, 110, R.steel[5], 8);
+    p.text('PULL TRIGGER / CLICK', 72, 124, R.dark[6], 7);
+    for (let y = 7; y < h - 7; y += 2) p.rect(7, y, w - 14, 1, 'rgba(0,0,0,0.2)');
+  });
+  const endCard = uiCard(endTex, 1.0, 0.5625, 35);
+  endCard.visible = false;
+  scene.add(endCard);
+  function showEndCard() {
+    const { pos, yaw } = getHead();
+    const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+    endCard.position.set(pos.x + fx * 1.2, pos.y - 0.05, pos.z + fz * 1.2);
+    endCard.lookAt(pos.x, pos.y, pos.z);
+    endCard.visible = true;
+    fanfare();
   }
 
   // =====================================================================
   // Command menu
   // =====================================================================
-  const menuTex = pixelTexture(96, 80, (p, w, h) => {
+  const menuTex = pixelTexture(96, MENU_H, (p, w, h) => {
     p.bevel(0, 0, w, h, R.beige, 4);
     p.rect(1, 1, w - 2, 1, R.beige[7]);
     p.inset(4, 4, w - 8, h - 8, R.black, 1);
@@ -176,7 +257,7 @@ export function createUI({ renderer, scene, camera, hitMeshes, getHead }) {
       p.text(c, 21, y, sel ? R.cryo[7] : R.beige[5], 8);
     });
   });
-  const menuCard = uiCard(menuTex, 0.18, 0.15, 30);
+  const menuCard = uiCard(menuTex, 0.18, 0.18 * (MENU_H / 96), 30);
   function setCmd(i) {
     if (i === state.cmd) return;
     state.cmd = i;
@@ -221,7 +302,7 @@ export function createUI({ renderer, scene, camera, hitMeshes, getHead }) {
     const targets = menuCard.parent ? [menuCard, ...hitMeshes] : hitMeshes;
     for (const h of raycaster.intersectObjects(targets, false)) {
       if (h.object === menuCard) {
-        const cy = (1 - h.uv.y) * 80;
+        const cy = (1 - h.uv.y) * MENU_H;
         const idx = Math.floor((cy - 18) / 13);
         return { menu: true, index: idx >= 0 && idx < COMMANDS.length ? idx : -1, point: h.point, dist: h.distance };
       }
@@ -308,12 +389,15 @@ export function createUI({ renderer, scene, camera, hitMeshes, getHead }) {
   });
   addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
-    const idx = { l: 0, t: 1, c: 2, u: 3 }[k];
+    const idx = { l: 0, t: 1, c: 2, u: 3, g: 4 }[k];
     if (idx !== undefined) setCmd(idx);
     if (k === ' ' || k === 'enter') {
       initAudio();
       if (!state.openingDone) startOpening();
-      else advance();
+      else if (endCard.visible) {
+        endCard.visible = false;
+        click();
+      } else advance();
       e.preventDefault();
     }
   });
@@ -329,20 +413,22 @@ export function createUI({ renderer, scene, camera, hitMeshes, getHead }) {
   function runCommand(spotId) {
     const cmd = COMMANDS[state.cmd].toLowerCase();
     const spot = HOTSPOTS[spotId];
+    if (!spot) return;
+    const key = `${spotId}.${cmd}`;
+    const n = state.counts[key] || 0;
+    state.counts[key] = n + 1;
+    const val = spot[cmd];
     let lines;
-    if (cmd === 'talk' && spot.talk === 'DORIS') {
+    if (cmd === 'talk' && val === 'DORIS') {
       lines = DORIS_TALK[state.dorisTalk % DORIS_TALK.length];
       state.dorisTalk++;
+    } else if (typeof val === 'function') {
+      lines = val(state.flags, n);
+    } else if (!val || !val.length) {
+      lines = [DEFAULTS[cmd]];
     } else {
-      const variants = spot[cmd];
-      if (!variants || !variants.length) lines = [DEFAULTS[cmd]];
-      else {
-        const key = `${spotId}.${cmd}`;
-        const n = state.counts[key] || 0;
-        state.counts[key] = n + 1;
-        const v = variants[Math.min(n, variants.length - 1)];
-        lines = Array.isArray(v) ? v : [v];
-      }
+      const v = val[Math.min(n, val.length - 1)];
+      lines = Array.isArray(v) ? v : [v];
     }
     confirm();
     say(lines);
@@ -350,6 +436,12 @@ export function createUI({ renderer, scene, camera, hitMeshes, getHead }) {
 
   function onSelect(source) {
     initAudio();
+    if (state.locked) return;
+    if (endCard.visible) {
+      endCard.visible = false;
+      click();
+      return;
+    }
     if (dlg.open) return advance();
     if (!state.openingDone && !renderer.xr.isPresenting) return startOpening();
     const ray = source ? ctrlRay(source) : mouseRay();
@@ -471,6 +563,14 @@ export function createUI({ renderer, scene, camera, hitMeshes, getHead }) {
   return {
     update,
     say,
+    flags: state.flags,
+    setHitMeshes(list) {
+      hitMeshes = list;
+      setHover(null, null);
+    },
+    setLocked(v) {
+      state.locked = v;
+    },
     onSessionStart() {
       attachMenu();
       if (!state.openingDone) state.openingTimer = 1.5;

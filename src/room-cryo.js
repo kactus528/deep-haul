@@ -5,8 +5,8 @@
 // Swap in hand-drawn art later; positions and sizes can stay.
 
 import * as THREE from 'three';
-import { cardMaterial, settings, FOG, MAX_QUADS } from './vertex.js?v=10';
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=10';
+import { cardMaterial, FOG, MAX_QUADS } from './vertex.js?v=11';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=11';
 
 export function buildCryoBay(scene) {
   scene.background = FOG;
@@ -550,32 +550,15 @@ export function buildCryoBay(scene) {
   card(crate, 0.9, 0.9, [-2.2, 0.45, -4.2], { face: [0, 0.45, 0], spot: 'crate' });
   card(crate, 0.9, 0.9, [2.3, 0.45, -4.4], { face: [0, 0.45, 0], spot: 'crate' });
 
-  // =====================================================================
-  // Debug HUD (not counted against the budget)
-  // =====================================================================
-  const hud = pixelTexture(128, 48, (p, w, h) => {
-    p.rect(0, 0, w, h, R.black[1]);
-    p.rect(0, 0, w, 1, R.steel[4]);
-    p.text(`B10 ${settings.comfort ? 'COMFORT' : 'AUTHENTIC'}`, 3, 2, settings.comfort ? R.cryo[6] : R.hazard[6], 8);
-    p.text(`QUADS ${quads}/${MAX_QUADS}`, 3, 13, quads > MAX_QUADS ? R.red[6] : R.phosphor[6], 8);
-    const items = [['LO', settings.lowres], ['PAL', settings.palette], ['SNP', settings.snap], ['AFF', settings.affine], ['20F', settings.steppedAnim]];
-    let x = 3;
-    for (const [s, on] of items) {
-      p.text(s, x, 24, on ? R.phosphor[6] : R.dark[5], 8);
-      x += s.length * 5 + 5;
-    }
-    p.text('STICK=MODE GRIP=CTR', 3, 35, R.steel[5], 8);
-  });
-  card(hud, 0.4, 0.15, [-0.42, 1.05, -0.75], { face: [0, 1.6, 0], counted: false });
-
   if (quads > MAX_QUADS) console.warn(`[VERTEX] ${quads} quads exceeds the ${MAX_QUADS} budget`);
   else console.info(`[VERTEX] ${quads}/${MAX_QUADS} quads`);
 
   let t = 0;
   return {
+    name: 'CRYO BAY',
     quads,
     hitMeshes,
-    refreshHud: () => hud.userData.redraw(),
+    fog: [3, 9],
     update(dt) {
       t += dt;
       const scroll = Math.floor(t / 1.2);

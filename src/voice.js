@@ -37,6 +37,12 @@ function tone(type, f0, f1, dur, vol) {
 }
 
 export function blip(speaker) {
+  if (speaker === 'CASE') return;
+  if (speaker === 'VENDO') {
+    const f = 330 + (Math.random() < 0.5 ? 0 : 55);
+    tone('square', f, f, 0.045, 0.03);
+    return;
+  }
   if (speaker === 'DORIS') {
     const f = 560 + Math.random() * 220;
     tone('square', f, f * 0.82, 0.05, 0.035);
@@ -52,4 +58,12 @@ export function click() {
 
 export function confirm() {
   tone('square', 700, 1400, 0.07, 0.03);
+}
+
+// Little end-of-chapter jingle.
+export function fanfare() {
+  if (!ctx) return;
+  [523, 659, 784, 1047, 784, 1047].forEach((f, i) => {
+    setTimeout(() => tone('square', f, f, i === 5 ? 0.5 : 0.12, 0.04), i * 130);
+  });
 }
