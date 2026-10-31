@@ -3,21 +3,22 @@
 // builders for walls, floors, ceilings and doors.
 
 import * as THREE from 'three';
-import { cardMaterial } from './vertex.js?v=23';
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=23';
+import { cardMaterial } from './vertex.js?v=24';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=24';
 
 export function cardMaker(group) {
   let quads = 0;
   const hitMeshes = [];
   // segs: a number, or [across, down]
-  const card = (tex, w, h, pos, { rot, face, order = 0, segs = 1, counted = true, tint = 1, spot = null, region = null, noHit = false } = {}) => {
+  // geo/proj/nQuads: a custom shape (the painted room box) instead of a plane.
+  const card = (tex, w, h, pos, { rot, face, order = 0, segs = 1, counted = true, tint = 1, spot = null, region = null, noHit = false, geo = null, proj = null, nQuads = 0 } = {}) => {
     const [sx, sy] = Array.isArray(segs) ? segs : [segs, segs];
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h, sx, sy), cardMaterial(tex, { tint }));
+    const m = new THREE.Mesh(geo || new THREE.PlaneGeometry(w, h, sx, sy), cardMaterial(tex, { tint, proj }));
     m.position.set(...pos);
     if (rot) m.rotation.set(...rot);
     if (face) m.lookAt(face[0], face[1], face[2]);
     m.renderOrder = order;
-    if (counted) quads += sx * sy;
+    if (counted) quads += geo ? nQuads : sx * sy;
     if (spot) m.userData.spot = spot;
     if (region) m.userData.region = region;
     if (!noHit) hitMeshes.push(m);

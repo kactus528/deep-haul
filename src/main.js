@@ -1,17 +1,17 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=23';
-import { loadArt } from './pixelart.js?v=23';
-import { createVisorMask } from './visor.js?v=23';
-import { buildCryoBay } from './room-cryo.js?v=23';
-import { buildCorridor } from './room-corridor.js?v=23';
-import { buildMess } from './room-mess.js?v=23';
-import { buildHydro } from './room-hydro.js?v=23';
-import { buildLibrary } from './room-library.js?v=23';
-import { createHud } from './hud.js?v=23';
-import { createUI } from './ui.js?v=23';
+import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=24';
+import { loadArt } from './pixelart.js?v=24';
+import { createVisorMask } from './visor.js?v=24';
+import { buildCryoBay } from './room-cryo.js?v=24';
+import { buildCorridor } from './room-corridor.js?v=24';
+import { buildMess } from './room-mess.js?v=24';
+import { buildHydro } from './room-hydro.js?v=24';
+import { buildLibrary } from './room-library.js?v=24';
+import { createHud } from './hud.js?v=24';
+import { createUI } from './ui.js?v=24';
 
-const BUILD = 23;
+const BUILD = 24;
 const ANIM_STEP = 1 / 20; // world animation runs at 20 fps
 const PLAY_SPOT = new THREE.Vector2(0, 0); // x, z of the player's fixed spot
 const LEAN_LIMIT = 0.3; // meters before the view fades out
@@ -192,9 +192,10 @@ function toggle(...keys) {
   pipeline.apply();
   hud.refresh();
 }
-// Headset remembers your choice for this visit. VISOR (the emulated 1992
-// headset) by default; Comfort is one thumbstick click away.
-let xrComfort = false;
+// Headset remembers your choice for this visit. CD (world-locked pixel art
+// with real depth) by default; VISOR (an emulated 1992 headset) is one
+// thumbstick click away.
+let xrComfort = true;
 function setMode(comfort) {
   settings.comfort = comfort;
   if (renderer.xr.isPresenting) xrComfort = comfort;

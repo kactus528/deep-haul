@@ -57,6 +57,10 @@ const CARD_VERT = /* glsl */ `
 uniform vec2 uRes;
 uniform float uSnap;
 uniform float uWorldGrid;
+uniform float uProj;
+uniform vec3 uProjEye;
+uniform vec4 uProjRect;
+uniform float uProjDist;
 varying vec3 vUvw;
 varying vec2 vUvP;
 varying float vDepth;
@@ -79,11 +83,22 @@ void main() {
   // correction: the old affine (screen-linear) texture mapping.
   vUvw = vec3(uv * clip.w, clip.w);
   vUvP = uv;
+  // Painted rooms: the painting is projected from the eye point it was
+  // painted for onto a simple box of floor, walls and ceiling, so it looks
+  // exactly like the picture from there and gains real depth as you lean.
+  if (uProj > 0.5) {
+    vec3 r = position - uProjEye;
+    float zz = max(-r.z, 0.001);
+    vec2 pp = uProjEye.xy + r.xy * (uProjDist / zz);
+    vec2 puv = (pp - uProjRect.xy) / uProjRect.zw;
+    vUvw = vec3(puv * zz, zz);
+  }
 }`;
 
 const CARD_FRAG = /* glsl */ `
 uniform sampler2D map;
 uniform float uAffine;
+uniform float uProj;
 uniform float uTint;
 uniform vec2 uUvOffset;
 uniform vec2 uCell;
@@ -101,7 +116,7 @@ varying float vDepth;
 float bayer2(vec2 a) { a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
 float bayer4(vec2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
 void main() {
-  vec2 uv = uAffine > 0.5 ? vUvw.xy / vUvw.z : vUvP;
+  vec2 uv = (uAffine > 0.5 || uProj > 0.5) ? vUvw.xy / vUvw.z : vUvP;
   // Snap this fragment to the center of its big VERTEX pixel and sample
   // there, so the whole block shows one texel.
   vec2 cell = floor(gl_FragCoord.xy / uCell);
@@ -109,6 +124,7 @@ void main() {
   uv += dFdx(uv) * d.x + dFdy(uv) * d.y;
   float depth = vDepth + dFdx(vDepth) * d.x + dFdy(vDepth) * d.y;
 
+  if (uProj > 0.5 && (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0)) discard;
   vec4 c = texture2D(map, uv + uUvOffset);
   if (c.a < 0.5) discard;
 
@@ -132,13 +148,15 @@ void main() {
   gl_FragColor = vec4(col, 1.0);
 }`;
 
+export const fade = shared.uFade; // read by solid (non-card) parts
+
 // Each room sets its own fog distances (long corridors need more).
 export function setFog(near, far) {
   shared.fogNear.value = near;
   shared.fogFar.value = far;
 }
 
-export function cardMaterial(map, { tint = 1, noSnap = false, noCell = false } = {}) {
+export function cardMaterial(map, { tint = 1, noSnap = false, noCell = false, proj = null } = {}) {
   return new THREE.ShaderMaterial({
     uniforms: {
       ...shared,
@@ -150,6 +168,10 @@ export function cardMaterial(map, { tint = 1, noSnap = false, noCell = false } =
       map: { value: map },
       uTint: { value: tint },
       uUvOffset: { value: new THREE.Vector2() },
+      uProj: { value: proj ? 1 : 0 },
+      uProjEye: { value: new THREE.Vector3(...(proj ? proj.eye : [0, 0, 0])) },
+      uProjRect: { value: new THREE.Vector4(...(proj ? proj.rect : [0, 0, 1, 1])) },
+      uProjDist: { value: proj ? proj.dist : 1 },
     },
     vertexShader: CARD_VERT,
     fragmentShader: CARD_FRAG,
@@ -188,6 +210,7 @@ export class VertexPipeline {
   }
 
   renderFlat(scene, camera) {
+    shared.uGrid.value = 0; // the LCD grid belongs to the VISOR headset only
     this.r.getDrawingBufferSize(this.size);
     this.setCell(this.size.x, this.size.y);
     this.r.render(scene, camera);
@@ -197,6 +220,7 @@ export class VertexPipeline {
     const xc = this.r.xr.getCamera();
     // One eye's viewport in real pixels (from last frame; it never changes).
     const vp = xc.cameras.length ? xc.cameras[0].viewport : null;
+    shared.uGrid.value = settings.lcd && !settings.comfort ? 1 : 0;
     if (vp && vp.z > 0) this.setCell(vp.z, vp.w, RES_VISOR);
     else this.setCell(RES.w * 6, RES.h * 6);
     this.r.render(scene, camera);

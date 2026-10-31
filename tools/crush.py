@@ -122,6 +122,8 @@ def main():
     ap.add_argument("--colors", type=int, default=64)
     ap.add_argument("--preview", help="also save a 4x preview PNG here")
     ap.add_argument("--horizon", type=float, default=None, help="backdrops: eye-level line as a fraction of height")
+    ap.add_argument("--box", type=float, nargs=4, default=None, metavar=("L", "T", "R", "B"),
+                    help="backdrops: the back wall's rectangle as fractions (left top right bottom), for depth")
     args = ap.parse_args()
 
     kind, w, h = TARGETS[args.key]
@@ -144,9 +146,15 @@ def main():
     img.save(out)
     man_path = os.path.join(ART, "manifest.json")
     manifest = json.load(open(man_path)) if os.path.exists(man_path) else {}
+    old = manifest.get(args.key, {})
     entry = {"file": args.key + ".png"}
+    for k in ("horizon", "box"):
+        if k in old:
+            entry[k] = old[k]
     if args.horizon is not None:
         entry["horizon"] = args.horizon
+    if args.box is not None:
+        entry["box"] = args.box
     manifest[args.key] = entry
     json.dump(manifest, open(man_path, "w"), indent=2, sort_keys=True)
     if args.preview:

@@ -1,9 +1,9 @@
 // Deck 2 corridor: between Cryo Bay 3 (behind you) and the mess hall (far
 // end). Crew cabins line the walls: Pike, Shay, the captain, and Q. Leeks.
 
-import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=23';
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=23';
-import { cardMaker, H, wallTex, floorTex, ceilingTex, doorTex, endWallTex, lampTex } from './roomkit.js?v=23';
+import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=24';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=24';
+import { cardMaker, H, wallTex, floorTex, ceilingTex, doorTex, endWallTex, lampTex } from './roomkit.js?v=24';
 
 export function buildCorridor(world) {
   const Z = -4; // corridor runs from z +1.5 (cryo) to z -9.5 (mess)
@@ -84,7 +84,7 @@ export function buildCorridor(world) {
   ]);
   layer(front, lamp, 0.42, 0.32, 0, 2.66, 6, { noHit: true });
   layer(front, lamp, 0.42, 0.32, 0, 2.66, 2.6, { noHit: true });
-  layer(front, arch, 2.6, 2.92, 0, 0, 1.7, { noHit: true });
+  layer(front, arch, 2.6, 2.92, 0, 0, 1.7, { noHit: true, thick: true });
 
   // ---- back view: toward Cryo Bay 3, the library door on the right ----
   const backDoors = [{ side: 1, z0: 1.7, z1: 2.7, accent: R.hazard, spot: 'librarydoor' }];
@@ -98,7 +98,7 @@ export function buildCorridor(world) {
     ['cryodoor', backP.backRegion(0.27, 0.26, 0.73, 1)],
     ['librarydoor', backP.region(1.3, 1.3, 0, 2.15, 1.7, 2.7)],
   ]);
-  layer(back, arch, 2.6, 2.92, 0, 0, 1.4, { noHit: true });
+  layer(back, arch, 2.6, 2.92, 0, 0, 1.4, { noHit: true, thick: true });
 
   return { name: 'CORRIDOR', fog: [8, 20], views: [front, back], update() {} };
 }

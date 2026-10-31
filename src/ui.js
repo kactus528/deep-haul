@@ -7,11 +7,12 @@
 // or point + trigger). Desktop: click things; L/T/C/U pick a command; Space advances.
 
 import * as THREE from 'three';
-import { cardMaterial } from './vertex.js?v=23';
-import { pixelTexture, RAMPS as R } from './pixelart.js?v=23';
-import { HOTSPOTS, OPENING, DORIS_TALK, DORIS_STORY, DEFAULTS } from './script.js?v=23';
-import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=23';
-import { createTalkers, mouthFor, TALKER_ASPECT } from './talkers.js?v=23';
+import { cardMaterial } from './vertex.js?v=24';
+import { pixelTexture, RAMPS as R } from './pixelart.js?v=24';
+import { HOTSPOTS, OPENING, DORIS_TALK, DORIS_STORY, DEFAULTS } from './script.js?v=24';
+import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=24';
+import { createTalkers, mouthFor, TALKER_ASPECT } from './talkers.js?v=24';
+import { slab } from './slab.js?v=24';
 
 // The command pad: one command per thumbstick direction.
 // USE also walks through doors (the old MOVE command).
@@ -152,6 +153,7 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
     for (let y = 6; y < h - 6; y += 2) p.rect(6, y, w - 12, 1, 'rgba(0,0,0,0.15)');
   });
   const dlgCard = uiCard(dlgTex, 0.72, 0.2025, 30);
+  slab(dlgCard, 0.72, 0.2025, 0.035, R.hazard[4]);
   dlgCard.visible = false;
   scene.add(dlgCard);
 
@@ -165,6 +167,7 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
   }
   const PORTRAIT_W = 0.27;
   const portraitCard = uiCard(talkers.GUS ? talkers.GUS.frames[0][0] : dlgTex, PORTRAIT_W, PORTRAIT_W * TALKER_ASPECT, 30);
+  slab(portraitCard, PORTRAIT_W, PORTRAIT_W * TALKER_ASPECT, 0.045, R.steel[4]);
   portraitCard.visible = false;
   scene.add(portraitCard);
   const face = { eye: 0, mouth: 0, mouthT: 0, blinkT: 2.5, blinkStep: -1, shown: null };
@@ -233,11 +236,12 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
     const rx = Math.cos(yaw), rz = -Math.sin(yaw);
     // Text box a little right of center, portrait to its left.
-    // Sized to sit inside the VISOR's window.
-    dlgCard.position.set(pos.x + fx * 1.0 + rx * 0.18, pos.y - 0.34, pos.z + fz * 1.0 + rz * 0.18);
+    dlgCard.position.set(pos.x + fx * 0.85 + rx * 0.15, pos.y - 0.3, pos.z + fz * 0.85 + rz * 0.15);
     dlgCard.lookAt(pos.x, pos.y - 0.05, pos.z);
-    portraitCard.position.set(pos.x + fx * 0.98 - rx * 0.46, pos.y - 0.29, pos.z + fz * 0.98 - rz * 0.46);
+    portraitCard.position.set(pos.x + fx * 0.83 - rx * 0.39, pos.y - 0.25, pos.z + fz * 0.83 - rz * 0.39);
     portraitCard.lookAt(pos.x, pos.y - 0.05, pos.z);
+    portraitCard.rotateY(0.22);
+    dlgCard.rotateY(-0.06);
   }
 
   function showPage(page) {
@@ -297,6 +301,7 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
     for (let y = 7; y < h - 7; y += 2) p.rect(7, y, w - 14, 1, 'rgba(0,0,0,0.2)');
   });
   const endCard = uiCard(endTex, 1.0, 0.5625, 35);
+  slab(endCard, 1.0, 0.5625, 0.05, R.hazard[4]);
   endCard.visible = false;
   scene.add(endCard);
   function showEndCard() {
@@ -330,6 +335,7 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
     p.outline('#100c22');
   });
   const menuCard = uiCard(menuTex, 0.17, 0.17, 30);
+  slab(menuCard, 0.17 * (46 / 48), 0, 0.03, R.steel[4], { round: true });
   function setCmd(i) {
     if (i === state.cmd) return;
     state.cmd = i;
@@ -380,8 +386,9 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
         if (Math.hypot(dx, dy) > 0.08) idx = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : dy < 0 ? 0 : 2;
         return { menu: true, index: idx, point: h.point, dist: h.distance };
       }
-      if (!opaqueAt(h.object, h.uv)) continue;
       const ud = h.object.userData;
+      if (ud.projUv) h.uv = ud.projUv(h.object.worldToLocal(h.point.clone()));
+      if (!opaqueAt(h.object, h.uv)) continue;
       let spot = ud.spot || null;
       // Paintings carry several hotspots as uv rectangles.
       if (ud.regions) {

@@ -8,8 +8,9 @@
 // No surrounding geometry. Each room has a front view and a back view.
 
 import * as THREE from 'three';
-import { pixelTexture, RAMPS as R, LIGHT, fbm, ART, ART_META } from './pixelart.js?v=23';
-import { cardMaker } from './roomkit.js?v=23';
+import { pixelTexture, RAMPS as R, LIGHT, fbm, ART, ART_META } from './pixelart.js?v=24';
+import { cardMaker } from './roomkit.js?v=24';
+import { cardMaterial } from './vertex.js?v=24';
 
 export const EYE = 1.6; // eye height the paintings are drawn for (m)
 export const DP = 6; // painting distance (m)
@@ -110,9 +111,22 @@ export function painting({ W = 448, H = 352, vy = 120, room, seed = 1, surfaces,
   const art = key && ART.get(key);
   if (art) {
     const aw = art.naturalWidth || art.width, ah = art.naturalHeight || art.height;
-    const avy = (ART_META.get(key)?.horizon ?? 0.45) * ah;
+    const meta = ART_META.get(key) || {};
+    const avy = (meta.horizon ?? 0.45) * ah;
+    // meta.box: the back wall's rectangle in the picture [left, top, right,
+    // bottom] as fractions; from it, the depth and size of the painted room.
+    let box = null;
+    if (meta.box) {
+      const [fx0, fy0, fx1, fy1] = meta.box;
+      const X = (f) => (f * aw - aw / 2) / PPM, Y = (f) => EYE - (f * ah - avy) / PPM;
+      const drop = EYE - Y(fy1);
+      if (drop > 0.05) {
+        const z = (DP * EYE) / drop;
+        box = { xl: (X(fx0) * z) / DP, xr: (X(fx1) * z) / DP, top: EYE + ((Y(fy0) - EYE) * z) / DP, depth: z };
+      }
+    }
     return {
-      tex, isArt: true, rect,
+      tex, isArt: true, rect, box,
       size: [aw / PPM, ah / PPM],
       center: [0, EYE - (ah / 2 - avy) / PPM],
       proj, region: () => [0, 0, 0, 0], backRegion: () => [0, 0, 0, 0],
@@ -135,19 +149,78 @@ export function painting({ W = 448, H = 352, vy = 120, room, seed = 1, surfaces,
     const y0 = rect.y0 + (rect.y1 - rect.y0) * fy0, y1 = rect.y0 + (rect.y1 - rect.y0) * fy1;
     return [x0 / W, 1 - y1 / H, x1 / W, 1 - y0 / H];
   };
-  return { tex, isArt: false, size, center, proj, rect, region, backRegion };
+  const box = { xl: -room.halfW, xr: room.halfW, top: room.height, depth: room.depth };
+  return { tex, isArt: false, size, center, proj, rect, region, backRegion, box };
+}
+
+// The painted room as a box: back wall, floor, ceiling and two side walls
+// (5 polygons), each showing its part of the painting from the eye point.
+const NEAR = 0.25;
+function roomBox({ xl, xr, top, depth: zb }) {
+  const n = -NEAR, b = -zb;
+  const quads = [
+    [[xl, 0, b], [xr, 0, b], [xr, top, b], [xl, top, b]], // back wall
+    [[xl, 0, n], [xr, 0, n], [xr, 0, b], [xl, 0, b]], // floor
+    [[xl, top, b], [xr, top, b], [xr, top, n], [xl, top, n]], // ceiling
+    [[xl, 0, n], [xl, 0, b], [xl, top, b], [xl, top, n]], // left wall
+    [[xr, 0, b], [xr, 0, n], [xr, top, n], [xr, top, b]], // right wall
+  ];
+  const pos = [], idx = [];
+  quads.forEach((q, i) => {
+    for (const v of q) pos.push(...v);
+    const o = i * 4;
+    idx.push(o, o + 1, o + 2, o, o + 2, o + 3);
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(pos.length / 3 * 2).fill(0), 2));
+  g.setIndex(idx);
+  g.computeBoundingSphere();
+  g.computeBoundingBox();
+  return g;
 }
 
 // Place a painting in a view, with any number of region hotspots.
 export function hangPainting(view, pnt, regions = []) {
-  const m = view.card(pnt.tex, pnt.size[0], pnt.size[1], [pnt.center[0], pnt.center[1], -DP], { order: -1 });
+  let m;
+  if (pnt.box) {
+    const [w, h] = pnt.size, [cx, cy] = pnt.center;
+    const rect = [cx - w / 2, cy - h / 2, w, h];
+    m = view.card(pnt.tex, w, h, [0, 0, 0], { order: -1, geo: roomBox(pnt.box), nQuads: 5, proj: { eye: [0, EYE, 0], rect, dist: DP } });
+    // Where on the painting a point on the box is (for hotspots).
+    m.userData.projUv = (p) => {
+      const zz = Math.max(-p.z, 0.001);
+      return new THREE.Vector2((p.x * DP / zz - rect[0]) / w, (EYE + (p.y - EYE) * DP / zz - rect[1]) / h);
+    };
+  } else m = view.card(pnt.tex, pnt.size[0], pnt.size[1], [pnt.center[0], pnt.center[1], -DP], { order: -1 });
   m.userData.regions = regions.map(([spot, region]) => ({ spot, region }));
   return m;
 }
 
 // Stand a flat cut-out layer at distance z (m), x across, bottom at y0.
 export function layer(view, tex, w, h, x, y0, z, opts = {}) {
-  return view.card(tex, w, h, [x, y0 + h / 2, -z], opts);
+  const m = view.card(tex, w, h, [x, y0 + h / 2, -z], opts);
+  if (opts.flat || (opts.noHit && !opts.thick)) return m; // glows, lamps and mist stay flat
+  thicken(m, Math.min(0.04, 0.012 + w * 0.012));
+  return m;
+}
+
+// Thickness for a flat cut-out: darker copies stacked just behind it, so its
+// edge shows as a solid rim when you lean (they follow its picture, frame and
+// lighting, and are not counted against the layer budget).
+export function thicken(m, depth, steps = 3) {
+  const u = m.material.uniforms;
+  for (let i = 1; i <= steps; i++) {
+    const c = new THREE.Mesh(m.geometry, cardMaterial(u.map.value, { tint: 0.4 }));
+    const cu = c.material.uniforms;
+    cu.map = u.map;
+    cu.uUvOffset = u.uUvOffset;
+    const k = 0.5 - (i / steps) * 0.25;
+    c.onBeforeRender = () => (cu.uTint.value = u.uTint.value * k);
+    c.position.z = -(depth * i) / steps;
+    c.renderOrder = m.renderOrder;
+    m.add(c);
+  }
 }
 
 // Draw an existing texture's image into the painting's back wall.

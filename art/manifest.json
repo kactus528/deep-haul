@@ -1,7 +1,13 @@
 {
   "cryo-front": {
     "file": "cryo-front.png",
-    "horizon": 0.46
+    "horizon": 0.46,
+    "box": [
+      0.3,
+      0.1,
+      0.7,
+      0.6
+    ]
   },
   "pod-closed": {
     "file": "pod-closed.png"
