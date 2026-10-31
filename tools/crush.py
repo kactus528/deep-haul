@@ -35,6 +35,9 @@ TARGETS = {
     "mess-back": ("backdrop", 512, None),
     "vendo": ("sprite", 64, 128),
     "mess-table": ("sprite", 120, 80),
+    "mess-table-l": ("sprite", 128, 64),
+    "mess-table-m": ("sprite", 96, 64),
+    "mess-table-s": ("sprite", 64, 64),
     # hydroponics
     "hydro-front": ("backdrop", 512, None),
     "hydro-back": ("backdrop", 512, None),

@@ -2,10 +2,10 @@
 // dead, the ship's hamsters have evolved a little (with "help"), and they
 // built a shrine under the lamp. Fix the lamp and Pockets shows himself.
 
-import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=31';
-import { fbm } from './pixelart.js?v=31';
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=31';
-import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex } from './roomkit.js?v=31';
+import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=32';
+import { fbm } from './pixelart.js?v=32';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=32';
+import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex } from './roomkit.js?v=32';
 
 export function buildHydro(world) {
   const Z = -2.5; // room runs from z +1 (mess door) to z -6

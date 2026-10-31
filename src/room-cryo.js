@@ -5,9 +5,9 @@
 // Swap in hand-drawn art later; positions and sizes can stay.
 
 import * as THREE from 'three';
-import { cardMaterial, FOG, MAX_QUADS } from './vertex.js?v=31';
-import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling, DP } from './stagekit.js?v=31';
-import { pixelTexture, RAMPS as R, LIGHT, ART } from './pixelart.js?v=31';
+import { cardMaterial, FOG, MAX_QUADS } from './vertex.js?v=32';
+import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling, DP } from './stagekit.js?v=32';
+import { pixelTexture, RAMPS as R, LIGHT, ART } from './pixelart.js?v=32';
 
 export function buildCryoBay(world) {
   // =====================================================================

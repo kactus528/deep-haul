@@ -28,15 +28,34 @@
   "doris-eye": {
     "file": "doris-eye.png"
   },
+  "mess-back": {
+    "box": [
+      0.0,
+      0.13,
+      1.0,
+      0.61
+    ],
+    "file": "mess-back.png",
+    "horizon": 0.36
+  },
   "mess-front": {
     "box": [
-      0.03,
-      0.07,
-      0.97,
-      0.6
+      0.0,
+      0.13,
+      1.0,
+      0.62
     ],
     "file": "mess-front.png",
-    "horizon": 0.43
+    "horizon": 0.38
+  },
+  "mess-table-l": {
+    "file": "mess-table-l.png"
+  },
+  "mess-table-m": {
+    "file": "mess-table-m.png"
+  },
+  "mess-table-s": {
+    "file": "mess-table-s.png"
   },
   "mop": {
     "file": "mop.png"

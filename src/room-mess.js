@@ -1,9 +1,9 @@
 // Mess hall: tables, VENDO-9, the big announcement screen, the captain's
 // memorial plaque, and a sealed hydroponics door with squeaking behind it.
 
-import { makeView, painting, hangPainting, layer, onBackWall, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=31';
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=31';
-import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex, lampTex } from './roomkit.js?v=31';
+import { makeView, painting, hangPainting, layer, onBackWall, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=32';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=32';
+import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex, lampTex } from './roomkit.js?v=32';
 
 export function buildMess(world) {
   const Z = -2.5; // room runs from z +1 (corridor door) to z -6
@@ -192,6 +192,11 @@ export function buildMess(world) {
     wall: panelWall({ paint: R.rust, feature: messFeature }),
   });
 
+  // Painted tables with their stools (big, medium, small).
+  const tableL = pixelTexture(128, 64, () => {}, { key: 'mess-table-l' });
+  const tableM = pixelTexture(96, 64, () => {}, { key: 'mess-table-m' });
+  const tableS = pixelTexture(64, 64, () => {}, { key: 'mess-table-s' });
+
   // ---- front view: tables, VENDO-9, the big screen ----
   const front = makeView(world);
   const frontP = painting({
@@ -208,23 +213,25 @@ export function buildMess(world) {
   const art = frontP.isArt && frontP.box;
   let screenCard;
   if (art) {
-    // Painted mess hall: counter, tables, screen and the hydroponics door are
-    // all in the picture, so its spots are traced on it (uv, v up).
+    // Painted mess hall: the counter, screen and hydroponics door are in the
+    // picture, so their spots are traced on it (uv, v up). Tables, stools and
+    // VENDO-9 stand on the floor as cut-outs.
     hangPainting(front, frontP, [
-      ['hydro', [0.76, 0.42, 0.88, 0.67]],
-      ['poster', [0.685, 0.55, 0.725, 0.64]],
-      ['screen', [0.085, 0.56, 0.28, 0.765]],
-      ['urn', [0.6, 0.51, 0.67, 0.61]],
-      ['counter', [0.3, 0.4, 0.72, 0.62]],
-      ['tables', [0, 0.15, 0.37, 0.46]],
-      ['tables', [0.61, 0.15, 1, 0.47]],
+      ['hydro', [0.84, 0.39, 0.96, 0.76]],
+      ['poster', [0.97, 0.54, 1, 0.61]],
+      ['screen', [0.05, 0.59, 0.285, 0.89]],
+      ['urn', [0.65, 0.51, 0.74, 0.65]],
+      ['counter', [0.31, 0.38, 0.79, 0.7]],
     ]);
-    // DORIS takes over the painted screen for her announcement.
-    const sc = onBackWall(frontP, [0.085, 0.56, 0.28, 0.765]);
+    // The painted screen is blank: the game's screen shows the menu, or DORIS.
+    const sc = onBackWall(frontP, [0.06, 0.6, 0.275, 0.88]);
     screenCard = layer(front, screenTex, sc.w, sc.h, sc.x, sc.y0, sc.z, { spot: 'screen', flat: true });
-    const pl = onBackWall(frontP, [0.305, 0.635, 0.365, 0.685]);
+    const pl = onBackWall(frontP, [0.2, 0.46, 0.28, 0.53]);
     layer(front, plaque, pl.w, pl.h, pl.x, pl.y0, pl.z, { spot: 'plaque', flat: true });
-    layer(front, vendo, 0.95, 1.9, -1.0, 0, 5.3, { spot: 'vendo' });
+    layer(front, vendo, 0.95, 1.9, -1.55, 0, 4.3, { spot: 'vendo' });
+    layer(front, tableL, 2.2, 1.1, 1.5, 0, 3.3, { spot: 'tables' });
+    layer(front, tableM, 1.65, 1.1, -1.9, 0, 3.0, { spot: 'tables' });
+    layer(front, tableS, 1.1, 1.1, 2.7, 0, 2.0, { spot: 'tables' });
   } else {
   hangPainting(front, frontP, [
     ['hydro', frontP.region(-3.5, -3.5, 0, 2.45, 3.8, 5.2)],
@@ -248,8 +255,18 @@ export function buildMess(world) {
     surfaces: messWalls([{ x: 0, z: 2.2, r: 1.4 }]),
     back: (p, rect) => blitBack(p, exit, rect),
   });
-  hangPainting(back, backP, [['messexit', backP.backRegion(0.29, 0.28, 0.71, 1)]]);
-  layer(back, table(777), 2.0, 0.75, -1.6, 0, 2.2, { spot: 'tables' });
+  if (backP.isArt && backP.box) {
+    hangPainting(back, backP, [
+      ['messexit', [0.39, 0.39, 0.61, 0.78]],
+      ['poster', [0.11, 0.55, 0.19, 0.77]],
+      ['urn', [0.22, 0.52, 0.35, 0.7]],
+    ]);
+    layer(back, tableS, 1.1, 1.1, -2.0, 0, 2.2, { spot: 'tables' });
+    layer(back, tableM, 1.65, 1.1, 2.1, 0, 2.6, { spot: 'tables' });
+  } else {
+    hangPainting(back, backP, [['messexit', backP.backRegion(0.29, 0.28, 0.71, 1)]]);
+    layer(back, table(777), 2.0, 0.75, -1.6, 0, 2.2, { spot: 'tables' });
+  }
 
   let t = 0;
   let lastBlink = null;
@@ -268,8 +285,6 @@ export function buildMess(world) {
         screenTex.userData.redraw();
       }
       screenCard.material.uniforms.uTint.value = screen.mode === 'doris' ? 1.1 + 0.15 * Math.sin(t * 6) : 1;
-      // Over painted art, the screen card only appears for DORIS.
-      if (art) screenCard.visible = screen.mode === 'doris';
     },
     onAction(name, arg) {
       if (name === 'screen') {
