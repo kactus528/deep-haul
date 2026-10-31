@@ -1,9 +1,9 @@
 // The ship's library: shelves of data tapes, a card catalog, a reading desk,
 // and LIBRA, the shy terminal who runs the place (and loves DORIS).
 
-import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=25';
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=25';
-import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex, lampTex } from './roomkit.js?v=25';
+import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=26';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=26';
+import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex, lampTex } from './roomkit.js?v=26';
 
 export function buildLibrary(world) {
   const Z = -2; // room runs from z +1 (corridor door) to z -5

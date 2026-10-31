@@ -31,7 +31,7 @@
   // Ask the server for the newest build number, bypassing the cache, and
   // jump to it if this copy is older.
   (async () => {
-    const THIS_BUILD = 25;
+    const THIS_BUILD = 26;
     try {
       const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
       const { build } = await r.json();
@@ -39,6 +39,6 @@
     } catch (e) {}
   })();
 </script>
-<script type="module" src="src/main.js?v=25"></script>
+<script type="module" src="src/main.js?v=26"></script>
 </body>
 </html>
