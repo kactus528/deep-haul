@@ -2,8 +2,8 @@
 // toggles. Lives in the anchored world group so it follows every room.
 
 import * as THREE from 'three';
-import { cardMaterial, settings, MAX_QUADS } from './vertex.js?v=22';
-import { pixelTexture, RAMPS as R } from './pixelart.js?v=22';
+import { cardMaterial, settings, MAX_QUADS } from './vertex.js?v=23';
+import { pixelTexture, RAMPS as R } from './pixelart.js?v=23';
 
 export function createHud(parent, build) {
   let quads = 0;
@@ -12,7 +12,7 @@ export function createHud(parent, build) {
   const tex = pixelTexture(128, 48, (p, w, h) => {
     p.rect(0, 0, w, h, R.black[1]);
     p.rect(0, 0, w, 1, R.steel[4]);
-    p.text(`B${build} ${settings.comfort ? 'COMFORT' : 'AUTHENTIC'}`, 3, 2, settings.comfort ? R.cryo[6] : R.hazard[6], 8);
+    p.text(`B${build} ${settings.comfort ? 'COMFORT' : 'VISOR'}`, 3, 2, settings.comfort ? R.cryo[6] : R.hazard[6], 8);
     p.text(`${roomName} ${quads}/${MAX_QUADS}L`, 3, 13, quads > MAX_QUADS ? R.red[6] : R.phosphor[6], 8);
     const items = [['LO', settings.lowres], ['PAL', settings.palette], ['SNP', settings.snap], ['AFF', settings.affine], ['20F', settings.steppedAnim]];
     let x = 3;
@@ -25,7 +25,7 @@ export function createHud(parent, build) {
       p.text(note, 3, 35, R.beige[7], 8);
     } else p.text('STICK=MODE GRIP=CTR', 3, 35, R.steel[5], 8);
   });
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.15), cardMaterial(tex, { noSnap: true }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.15), cardMaterial(tex, { noSnap: true, noCell: true }));
   m.position.set(-0.42, 1.05, -0.75);
   m.lookAt(0, 1.6, 0);
   m.renderOrder = 15;

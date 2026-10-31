@@ -14,6 +14,9 @@ import * as THREE from 'three';
 THREE.ColorManagement.enabled = false; // raw display values end to end
 
 export const RES = { w: 256, h: 224 };
+// The VERTEX VISOR's LCDs, spread over each eye's full view (the narrow
+// black-framed window shows roughly the middle 60 degrees of it).
+export const RES_VISOR = { w: 480, h: 448 };
 export const MAX_QUADS = 24; // flat layers per view (the VERTEX's sprite planes)
 
 export const settings = {
@@ -28,6 +31,7 @@ export const settings = {
   affine: true,
   steppedAnim: true,
   scanlines: false,
+  lcd: true, // VISOR mode's pixel grid
 };
 
 export const FOG = new THREE.Color(4 / 255, 6 / 255, 14 / 255);
@@ -42,6 +46,7 @@ const shared = {
   uAffine: { value: 1 },
   uPalette: { value: 1 },
   uScan: { value: 0 },
+  uGrid: { value: 0 },
   uFade: { value: 0 },
   fogColor: { value: FOG },
   fogNear: { value: 3.0 },
@@ -85,6 +90,7 @@ uniform vec2 uCell;
 uniform float uPalette;
 uniform float uDither;
 uniform float uScan;
+uniform float uGrid;
 uniform float uFade;
 uniform vec3 fogColor;
 uniform float fogNear;
@@ -115,6 +121,13 @@ void main() {
     col = clamp(floor(col * 31.0 + 0.5 + t) / 31.0, 0.0, 1.0); // 5 bits per channel
   }
   if (uScan > 0.5 && mod(cell.y, 2.0) > 0.5) col *= 0.82;
+  // 1992 color LCD: dark gaps between pixels and faint RGB subpixel stripes.
+  if (uGrid > 0.5 && uCell.x > 2.5) {
+    vec2 f = fract(gl_FragCoord.xy / uCell);
+    if (f.x < 0.17 || f.y < 0.17) col *= 0.45;
+    float tri = mod(floor(gl_FragCoord.x / (uCell.x / 3.0)), 3.0);
+    col *= tri < 0.5 ? vec3(1.14, 0.93, 0.93) : (tri < 1.5 ? vec3(0.93, 1.14, 0.93) : vec3(0.93, 0.93, 1.14));
+  }
   col = mix(col, fogColor, uFade);
   gl_FragColor = vec4(col, 1.0);
 }`;
@@ -125,13 +138,15 @@ export function setFog(near, far) {
   shared.fogFar.value = far;
 }
 
-export function cardMaterial(map, { tint = 1, noSnap = false } = {}) {
+export function cardMaterial(map, { tint = 1, noSnap = false, noCell = false } = {}) {
   return new THREE.ShaderMaterial({
     uniforms: {
       ...shared,
       // Interface cards (cursor, menu, dialogue) never snap: a 1 cm grid
       // would crush a 3 cm cursor.
       ...(noSnap ? { uSnap: { value: 0 } } : {}),
+      // Interface text stays crisp and readable through the visor.
+      ...(noCell ? { uCell: { value: new THREE.Vector2(1, 1) } } : {}),
       map: { value: map },
       uTint: { value: tint },
       uUvOffset: { value: new THREE.Vector2() },
@@ -163,12 +178,13 @@ export class VertexPipeline {
     shared.uPalette.value = settings.palette ? 1 : 0;
     shared.uDither.value = settings.dither && !c ? 1 : 0;
     shared.uScan.value = settings.scanlines && !c ? 1 : 0;
+    shared.uGrid.value = settings.lcd && !c ? 1 : 0;
     shared.uRes.value.set(settings.lowres ? RES.w : 4096, settings.lowres ? RES.h : 4096);
   }
 
-  setCell(width, height) {
+  setCell(width, height, res = RES) {
     if (!settings.lowres || settings.comfort || !(width > 0) || !(height > 0)) shared.uCell.value.set(1, 1);
-    else shared.uCell.value.set(Math.max(1, width / RES.w), Math.max(1, height / RES.h));
+    else shared.uCell.value.set(Math.max(1, width / res.w), Math.max(1, height / res.h));
   }
 
   renderFlat(scene, camera) {
@@ -181,7 +197,7 @@ export class VertexPipeline {
     const xc = this.r.xr.getCamera();
     // One eye's viewport in real pixels (from last frame; it never changes).
     const vp = xc.cameras.length ? xc.cameras[0].viewport : null;
-    if (vp && vp.z > 0) this.setCell(vp.z, vp.w);
+    if (vp && vp.z > 0) this.setCell(vp.z, vp.w, RES_VISOR);
     else this.setCell(RES.w * 6, RES.h * 6);
     this.r.render(scene, camera);
   }

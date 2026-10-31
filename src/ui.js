@@ -7,11 +7,11 @@
 // or point + trigger). Desktop: click things; L/T/C/U pick a command; Space advances.
 
 import * as THREE from 'three';
-import { cardMaterial } from './vertex.js?v=22';
-import { pixelTexture, RAMPS as R } from './pixelart.js?v=22';
-import { HOTSPOTS, OPENING, DORIS_TALK, DORIS_STORY, DEFAULTS } from './script.js?v=22';
-import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=22';
-import { createTalkers, mouthFor, TALKER_ASPECT } from './talkers.js?v=22';
+import { cardMaterial } from './vertex.js?v=23';
+import { pixelTexture, RAMPS as R } from './pixelart.js?v=23';
+import { HOTSPOTS, OPENING, DORIS_TALK, DORIS_STORY, DEFAULTS } from './script.js?v=23';
+import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=23';
+import { createTalkers, mouthFor, TALKER_ASPECT } from './talkers.js?v=23';
 
 // The command pad: one command per thumbstick direction.
 // USE also walks through doors (the old MOVE command).
@@ -27,7 +27,7 @@ const CPS = 40; // typed characters per second
 const ROWS = 4;
 
 function uiCard(tex, w, h, order) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), cardMaterial(tex, { noSnap: true }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), cardMaterial(tex, { noSnap: true, noCell: true }));
   m.renderOrder = order;
   m.frustumCulled = false;
   return m;
@@ -233,9 +233,10 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
     const rx = Math.cos(yaw), rz = -Math.sin(yaw);
     // Text box a little right of center, portrait to its left.
-    dlgCard.position.set(pos.x + fx * 0.85 + rx * 0.15, pos.y - 0.3, pos.z + fz * 0.85 + rz * 0.15);
+    // Sized to sit inside the VISOR's window.
+    dlgCard.position.set(pos.x + fx * 1.0 + rx * 0.18, pos.y - 0.34, pos.z + fz * 1.0 + rz * 0.18);
     dlgCard.lookAt(pos.x, pos.y - 0.05, pos.z);
-    portraitCard.position.set(pos.x + fx * 0.83 - rx * 0.39, pos.y - 0.25, pos.z + fz * 0.83 - rz * 0.39);
+    portraitCard.position.set(pos.x + fx * 0.98 - rx * 0.46, pos.y - 0.29, pos.z + fz * 0.98 - rz * 0.46);
     portraitCard.lookAt(pos.x, pos.y - 0.05, pos.z);
   }
 

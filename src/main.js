@@ -1,16 +1,17 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=22';
-import { loadArt } from './pixelart.js?v=22';
-import { buildCryoBay } from './room-cryo.js?v=22';
-import { buildCorridor } from './room-corridor.js?v=22';
-import { buildMess } from './room-mess.js?v=22';
-import { buildHydro } from './room-hydro.js?v=22';
-import { buildLibrary } from './room-library.js?v=22';
-import { createHud } from './hud.js?v=22';
-import { createUI } from './ui.js?v=22';
+import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=23';
+import { loadArt } from './pixelart.js?v=23';
+import { createVisorMask } from './visor.js?v=23';
+import { buildCryoBay } from './room-cryo.js?v=23';
+import { buildCorridor } from './room-corridor.js?v=23';
+import { buildMess } from './room-mess.js?v=23';
+import { buildHydro } from './room-hydro.js?v=23';
+import { buildLibrary } from './room-library.js?v=23';
+import { createHud } from './hud.js?v=23';
+import { createUI } from './ui.js?v=23';
 
-const BUILD = 22;
+const BUILD = 23;
 const ANIM_STEP = 1 / 20; // world animation runs at 20 fps
 const PLAY_SPOT = new THREE.Vector2(0, 0); // x, z of the player's fixed spot
 const LEAN_LIMIT = 0.3; // meters before the view fades out
@@ -139,6 +140,7 @@ function switchRoomNow(id, view = 0) {
 const camera = new THREE.PerspectiveCamera(60, RES.w / RES.h, 0.05, 50);
 scene.add(camera); // the desktop command menu rides on the camera
 const pipeline = new VertexPipeline(renderer);
+const visorMask = createVisorMask(scene, { fovX: 76, fovY: 56 });
 const errScene = new THREE.Scene();
 errScene.background = new THREE.Color(0.6, 0, 0);
 // In the headset you can't see the desktop page, so the error is also
@@ -190,11 +192,13 @@ function toggle(...keys) {
   pipeline.apply();
   hud.refresh();
 }
-// Headset remembers your choice for this visit; Comfort until you switch.
-let xrComfort = true;
+// Headset remembers your choice for this visit. VISOR (the emulated 1992
+// headset) by default; Comfort is one thumbstick click away.
+let xrComfort = false;
 function setMode(comfort) {
   settings.comfort = comfort;
   if (renderer.xr.isPresenting) xrComfort = comfort;
+  if (typeof visorMask !== 'undefined') visorMask.visible = renderer.xr.isPresenting && !comfort;
   pipeline.apply();
   hud.refresh();
 }
@@ -315,6 +319,7 @@ renderer.xr.addEventListener('sessionend', () => {
   pipeline.setFade(0);
   ui.onSessionEnd();
   settings.comfort = false; // flat screen stays fully authentic
+  visorMask.visible = false;
   pipeline.apply();
   hud.refresh();
   if (help) help.style.display = '';
