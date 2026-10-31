@@ -1,17 +1,17 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=33';
-import { loadArt } from './pixelart.js?v=33';
-import { createVisorMask } from './visor.js?v=33';
-import { buildCryoBay } from './room-cryo.js?v=33';
-import { buildCorridor } from './room-corridor.js?v=33';
-import { buildMess } from './room-mess.js?v=33';
-import { buildHydro } from './room-hydro.js?v=33';
-import { buildLibrary } from './room-library.js?v=33';
-import { createHud } from './hud.js?v=33';
-import { createUI } from './ui.js?v=33';
+import { VertexPipeline, settings, RES, FOG, setFog } from './vertex.js?v=34';
+import { loadArt } from './pixelart.js?v=34';
+import { createVisorMask } from './visor.js?v=34';
+import { buildCryoBay } from './room-cryo.js?v=34';
+import { buildCorridor } from './room-corridor.js?v=34';
+import { buildMess } from './room-mess.js?v=34';
+import { buildHydro } from './room-hydro.js?v=34';
+import { buildLibrary } from './room-library.js?v=34';
+import { createHud } from './hud.js?v=34';
+import { createUI } from './ui.js?v=34';
 
-const BUILD = 33;
+const BUILD = 34;
 const ANIM_STEP = 1 / 20; // world animation runs at 20 fps
 const PLAY_SPOT = new THREE.Vector2(0, 0); // x, z of the player's fixed spot
 const LEAN_LIMIT = 0.3; // meters before the view fades out
