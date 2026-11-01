@@ -1,9 +1,9 @@
 // Mess hall: tables, VENDO-9, the big announcement screen, the captain's
 // memorial plaque, and a sealed hydroponics door with squeaking behind it.
 
-import { makeView, painting, hangPainting, layer, onBackWall, standCutout, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=35';
-import { pixelTexture, RAMPS as R, LIGHT, ART_META } from './pixelart.js?v=35';
-import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex, lampTex } from './roomkit.js?v=35';
+import { makeView, painting, hangPainting, layer, onBackWall, standCutout, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=36';
+import { pixelTexture, RAMPS as R, LIGHT, ART_META } from './pixelart.js?v=36';
+import { cardMaker, H, wallTex, floorTex, ceilingTex, endWallTex, lampTex } from './roomkit.js?v=36';
 
 export function buildMess(world) {
   const Z = -2.5; // room runs from z +1 (corridor door) to z -6

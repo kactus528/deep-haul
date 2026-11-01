@@ -5,9 +5,9 @@
 // Swap in hand-drawn art later; positions and sizes can stay.
 
 import * as THREE from 'three';
-import { cardMaterial, FOG, MAX_QUADS } from './vertex.js?v=35';
-import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling, DP } from './stagekit.js?v=35';
-import { pixelTexture, RAMPS as R, LIGHT, ART } from './pixelart.js?v=35';
+import { cardMaterial, FOG, MAX_QUADS } from './vertex.js?v=36';
+import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling, DP } from './stagekit.js?v=36';
+import { pixelTexture, RAMPS as R, LIGHT, ART } from './pixelart.js?v=36';
 
 export function buildCryoBay(world) {
   // =====================================================================
@@ -248,7 +248,7 @@ export function buildCryoBay(world) {
       p.bevel(30, 132, 36, 16, R.dark, 3);
       for (let i = 0; i < 4; i++) p.rect(34 + i * 7, 136 + (i % 2) * 2, 5, 8 - (i % 2) * 2, open ? R.red[5 - (i % 2)] : R.phosphor[5 + (i % 2)]);
       p.bevel(28, 150, 40, 10, R.hazard, 5);
-      p.text(open ? 'G. PELL' : 'KEEP COLD', 30, 151, R.black[0], 7);
+      p.text(open ? 'F. MUDD' : 'KEEP COLD', 30, 151, R.black[0], 7);
       p.bevel(6, 164, 84, 28, R.dark, 4);
       p.stripes(8, 166, 80, 5, R.hazard[5], R.black[2], 6);
       for (let x = 14; x < 84; x += 5) p.rect(x, 175, 2, 12, R.black[1]);

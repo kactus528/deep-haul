@@ -4,7 +4,7 @@
 // first use plays variant 0, the next use variant 1, and so on; the last one
 // repeats. A variant is one line or a list of lines (a short scene).
 // Speakers: "D:" DORIS, "V:" VENDO-9, "P:" Pockets, "L:" LIBRA,
-// "C:" a CASE FILE entry; anything else is Gus. talk: 'DORIS' means "talk to DORIS" (rotating lines below).
+// "C:" a CASE FILE entry; anything else is Frankie. talk: 'DORIS' means "talk to DORIS" (rotating lines below).
 // A command can also be a function (flags, n) => lines, for story logic.
 // Action lines run instantly when reached:
 //   @set:flag   @goto:room or @goto:room:yaw   @screen:mode   @lamp:on
@@ -48,7 +48,7 @@ export function DORIS_STORY(f) {
 
 // Chapter 2 wraps up once both witnesses have talked.
 const CH2_END = [
-  'D:Two whole witnesses! You\'re a natural, Gus!',
+  'D:Two whole witnesses! You\'re a natural, Frankie!',
   'D:And now... the moment I\'ve waited four hundred years for.',
   'What moment?',
   'D:A FUNERAL! Find something black. And a hanky. Mostly for me.',
@@ -68,7 +68,7 @@ export const DEFAULTS = {
 export const HOTSPOTS = {
   mypod: {
     name: 'YOUR POD',
-    look: ['My pod. Says G. PELL on the side. Somebody spelled my name right, which is a first.'],
+    look: ['My pod. Says F. MUDD on the side. Somebody spelled my name right, which is a first.'],
     check: [
       'Still cold. The seat has a perfect frost outline of my butt.',
       'There\'s a sticker inside the lid. CONTENTS: SUPPLIES.',
@@ -117,7 +117,7 @@ export const HOTSPOTS = {
     look: ['A red lens in the ceiling. It\'s watching me. It is definitely watching me.'],
     check: [['I squinted at the lens.', 'D:Please don\'t squint at my lens. It\'s rude.']],
     talk: 'DORIS',
-    use: ['It\'s an eye, Gus. Leave the eye alone.'],
+    use: ['It\'s an eye, Frankie. Leave the eye alone.'],
   },
   mug: {
     name: 'MUG',
@@ -240,7 +240,7 @@ export const HOTSPOTS = {
       'Locked. It smells faintly of tea.',
       'The knocker is a little brass theatre mask. Of course it is.',
     ],
-    talk: [['Captain? ...Sir?', 'D:He\'s not in, Gus. He hasn\'t been in for a very long time.']],
+    talk: [['Captain? ...Sir?', 'D:He\'s not in, Frankie. He hasn\'t been in for a very long time.']],
     use: ['I\'m not barging into the captain\'s quarters. I have some manners.'],
     move: ['I\'m not barging into the captain\'s quarters. I have some manners.'],
   },
@@ -270,7 +270,7 @@ export const HOTSPOTS = {
     look: ['A notice board. DAYS SINCE LAST INCIDENT: 0.'],
     check: [
       'Somebody kept that number updated. For four hundred years.',
-      ['D:Accuracy matters!', 'What was the incident?', 'D:Every day is an incident when you\'re alone, Gus.', '...That got dark fast.'],
+      ['D:Accuracy matters!', 'What was the incident?', 'D:Every day is an incident when you\'re alone, Frankie.', '...That got dark fast.'],
       'There\'s a flyer for a crew talent night. "Featuring THE CAPTAIN, reading Shakespeare. Attendance mandatory."',
     ],
     use: ['I straightened the flyers. Old habits.'],
@@ -324,7 +324,7 @@ export const HOTSPOTS = {
         '@screen:doris',
         'D:Ooh, a clue! Next, more witnesses. I\'ve unlocked the library, and the hydroponics situation. Be polite. They bite.',
         '@set:ch1done',
-        '@end:1:THAW:PELL-0312-HAUL',
+        '@end:1:THAW:MUDD-0312-HAUL',
       ];
       return [
         ['V:TODAY\'S SPECIAL IS LOAF.', 'What was yesterday\'s special?', 'V:LOAF. I AM VERY CONSISTENT.'],
@@ -340,7 +340,7 @@ export const HOTSPOTS = {
         'V:IT HAS BEEN FOUR HUNDRED YEARS SINCE ANYONE ORDERED. I HAVE SO MUCH TO SAY.',
         '@set:coinGiven',
         '@screen:doris',
-        'D:ATTENTION! ATTENTION, GUS PELL! Sorry, is this too loud? I\'m using the BIG screen!',
+        'D:ATTENTION! ATTENTION, FRANKIE MUDD! Sorry, is this too loud? I\'m using the BIG screen!',
         'D:Four hundred years ago, the entire crew of the Ironmonger vanished without a trace.',
         'D:It was MURDER.',
         '...Was it?',
@@ -499,7 +499,7 @@ export const HOTSPOTS = {
       if (!f.metPockets)
         return [
           'P:So. You\'re the Big Clumsy One who sleeps in the cold box.',
-          'I\'m Gus.',
+          'I\'m Frankie.',
           'P:I am Pockets. LORD Pockets, if you\'re nasty. Admire my fur. Go on.',
           'It\'s... very shiny.',
           'P:I KNOW.',

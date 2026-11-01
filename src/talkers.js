@@ -8,7 +8,7 @@
 // eyes:   0 open, 1 half, 2 closed
 // mouths: 0 closed, 1 small, 2 open, 3 round ("oo")
 
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=35';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=36';
 
 const W = 112, H = 128; // portrait + frame
 const OX = 8, OY = 8; // painting origin inside the frame
@@ -63,7 +63,7 @@ function gusBase(p) {
   p.rect(cx - 40, OY + 102, 80, 3, R.hazard[6]);
   p.rect(cx - 40, OY + 103, 80, 1, R.hazard[4]);
   p.bevel(cx + 10, OY + 90, 22, 9, R.beige, 5);
-  p.text('PELL', cx + 12, OY + 91, R.dark[0], 6);
+  p.text('MUDD', cx + 12, OY + 91, R.dark[0], 6);
   // neck and collar
   ellipsoid(p, cx, OY + 82, 11, 10, R.skin, { lo: 1, hi: 4.6 });
   for (let k = 0; k < 9; k++) {

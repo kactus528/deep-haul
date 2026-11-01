@@ -1,9 +1,9 @@
 // Deck 2 corridor: between Cryo Bay 3 (behind you) and the mess hall (far
 // end). Crew cabins line the walls: Pike, Shay, the captain, and Q. Leeks.
 
-import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=35';
-import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=35';
-import { cardMaker, H, wallTex, floorTex, ceilingTex, doorTex, endWallTex, lampTex } from './roomkit.js?v=35';
+import { makeView, painting, hangPainting, layer, blitBack, treadFloor, panelWall, lampCeiling } from './stagekit.js?v=36';
+import { pixelTexture, RAMPS as R, LIGHT } from './pixelart.js?v=36';
+import { cardMaker, H, wallTex, floorTex, ceilingTex, doorTex, endWallTex, lampTex } from './roomkit.js?v=36';
 
 export function buildCorridor(world) {
   const Z = -4; // corridor runs from z +1.5 (cryo) to z -9.5 (mess)

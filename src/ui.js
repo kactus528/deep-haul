@@ -7,12 +7,12 @@
 // or point + trigger). Desktop: click things; L/T/C/U pick a command; Space advances.
 
 import * as THREE from 'three';
-import { cardMaterial } from './vertex.js?v=35';
-import { pixelTexture, RAMPS as R } from './pixelart.js?v=35';
-import { HOTSPOTS, OPENING, DORIS_TALK, DORIS_STORY, DEFAULTS } from './script.js?v=35';
-import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=35';
-import { createTalkers, mouthFor, TALKER_ASPECT } from './talkers.js?v=35';
-import { slab } from './slab.js?v=35';
+import { cardMaterial } from './vertex.js?v=36';
+import { pixelTexture, RAMPS as R } from './pixelart.js?v=36';
+import { HOTSPOTS, OPENING, DORIS_TALK, DORIS_STORY, DEFAULTS } from './script.js?v=36';
+import { initAudio, blip, click, confirm, fanfare } from './voice.js?v=36';
+import { createTalkers, mouthFor, TALKER_ASPECT } from './talkers.js?v=36';
+import { slab } from './slab.js?v=36';
 
 // The command pad: one command per thumbstick direction.
 // USE also walks through doors (the old MOVE command).
@@ -125,7 +125,7 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
     DORIS: { tag: 'DORIS', ramp: R.red, ink: R.beige[7] },
     VENDO: { tag: 'VENDO-9', ramp: R.suit, ink: R.hazard[7] },
     CASE: { tag: 'CASE FILE', ramp: R.hazard, ink: R.hazard[6] },
-    GUS: { tag: 'GUS', ramp: R.cryo, ink: R.cryo[6] },
+    GUS: { tag: 'FRANKIE', ramp: R.cryo, ink: R.cryo[6] },
     POCKETS: { tag: 'POCKETS', ramp: R.hazard, ink: R.beige[7] },
     LIBRA: { tag: 'LIBRA', ramp: R.hazard, ink: R.hazard[7] },
   };
@@ -205,7 +205,7 @@ export function createUI({ renderer, scene, camera, hitMeshes: initialHits, getH
     }
     else if (action === 'end') {
       state.pendingEnd = true;
-      state.endInfo = { num: args[0] || '1', title: args[1] || 'THAW', pass: args[2] || 'PELL-0312-HAUL' };
+      state.endInfo = { num: args[0] || '1', title: args[1] || 'THAW', pass: args[2] || 'MUDD-0312-HAUL' };
     }
     else onAction(action, ...args);
   }
